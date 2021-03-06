@@ -42,14 +42,22 @@ class BoxMethods(object):
         return min_embed, delta_embed
 
     def get_transformed_embedding(self, t1_idx, rel_vector):
-        """Box embedding min and log_delta is returned"""
+        """Box embedding min + min_rel and log_delta + log_relation_delta is returned"""
         min_relation, delta_relation = tf.split(
             rel_vector, 2, axis=-1, name='split')
         t1_min_embed = tf.nn.embedding_lookup(self.min_embed, t1_idx)
         t1_delta_embed = tf.nn.embedding_lookup(self.delta_embed, t1_idx)
         return t1_min_embed + min_relation, tf.exp(t1_delta_embed + delta_relation)
 
+    def get_embedding(self, t1_idx):
+        """Box embedding min and log_delta is returned"""
+        t1_min_embed = tf.nn.embedding_lookup(self.min_embed, t1_idx)
+        t1_delta_embed = tf.nn.embedding_lookup(self.delta_embed, t1_idx)
+        return t1_min_embed , tf.exp(t1_delta_embed)
+
     def get_conditional_probability(self, t1_min_embed, t1_max_embed, t2_min_embed, t2_max_embed):
+        ## p(t2/t1) / p(mammal|man) = 1
+
         meet_min, meet_max = self.calc_intersection(
         t1_min_embed, t1_max_embed, t2_min_embed, t2_max_embed)
         """get conditional probabilities"""

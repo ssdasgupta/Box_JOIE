@@ -217,10 +217,10 @@ class TFParts(object):
             neg_logit = self._ht2.get_conditional_probability(hn_min_embed, hn_max_embed, 
                 tn_min_embed, tn_max_embed)
             logits = tf.concat([pos_logit, neg_logit], 0)
-            self.label = tf.Variable(tf.concat([tf.ones_like(pos_logit),
-                tf.zeros_like(neg_logit)], 0), trainable=False)
+            label = tf.concat([tf.ones_like(pos_logit),
+                tf.zeros_like(neg_logit)], 0)
 
-            self._B_loss = B_loss = self._ht2.get_loss(logits, self.label)
+            self._B_loss = B_loss = self._ht2.get_loss(logits, label)
 
             ######################## Type Loss #######################
             self._AM_index1 = AM_index1 = tf.placeholder(
@@ -250,24 +250,23 @@ class TFParts(object):
             #     dtype=tf.float32, trainable = False)
             AM_ent1_batch = tf.nn.embedding_lookup(ht1, AM_index1)
             AM_ent1_nbatch = tf.nn.embedding_lookup(ht1, AM_nindex1)
-            self.instance_delta = tf.Variable(tf.ones_like(AM_ent1_batch), trainable = False) * 10**(-7)
-            relation_vector =  tf.zeros(dtype=tf.float32, shape=[self._batch_sizeA, self._dim1 * 2])
+            #self.instance_delta = tf.Variable(tf.ones_like(AM_ent1_batch), trainable = False) * 10**(-7)
+            # relation_vector =  tf.zeros(dtype=tf.float32, shape=[self._batch_sizeA, self._dim1 * 2])
 
-            AM_ent1_min, AM_ent1_max = AM_ent1_batch - self.instance_delta, AM_ent1_batch + self.instance_delta
-            AM_nent1_min, AM_nent1_max = AM_ent1_nbatch - self.instance_delta, AM_ent1_nbatch + self.instance_delta
+            AM_ent1_min = AM_ent1_max = AM_ent1_batch
+            AM_nent1_min = AM_nent1_max = AM_ent1_nbatch 
 
-            AM_ent2_min, AM_ent2_max = self._ht2.get_transformed_embedding(AM_index2, relation_vector)
-            AM_nent2_min, AM_nent2_max = self._ht2.get_transformed_embedding(AM_nindex2, relation_vector)
+            AM_ent2_min, AM_ent2_max = self._ht2.get_embedding(AM_index2)
+            AM_nent2_min, AM_nent2_max = self._ht2.get_embedding(AM_nindex2)
 
             pos_logit = self._ht2.get_conditional_probability(AM_ent1_min, AM_ent1_max, 
                 AM_ent2_min, AM_ent2_max)
             neg_logit = self._ht2.get_conditional_probability(AM_nent1_min, AM_nent1_max, 
                 AM_nent2_min, AM_nent2_max)
             logits = tf.concat([pos_logit, neg_logit], 0)
-            self.label = tf.Variable(tf.concat([tf.ones_like(pos_logit),
-                tf.zeros_like(neg_logit)], 0), trainable=False)
+            label = tf.concat([tf.ones_like(pos_logit), tf.zeros_like(neg_logit)], 0)
 
-            self._AM_loss = AM_loss = self._ht2.get_loss(logits, self.label)
+            self._AM_loss = AM_loss = self._ht2.get_loss(logits, label)
 
 
             # AM_ent2_batch = tf.nn.l2_normalize(tf.nn.embedding_lookup(ht2, AM_index2), 1)
