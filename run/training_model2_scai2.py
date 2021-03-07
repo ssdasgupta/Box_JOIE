@@ -6,6 +6,7 @@ from __future__ import division
 from __future__ import print_function
 import sys
 import os
+import wandb
 # add path
 sys.path.append(os.path.join(os.path.dirname(__file__), './src'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '../src'))
@@ -39,9 +40,10 @@ parser.add_argument('--GPU', type=str, default='0', help='GPU Usage')
 parser.add_argument('--dim1', type=int, default=300,help='Entity dimension') #update dim
 parser.add_argument('--dim2', type=int, default=100,help='Concept dimension') #update dim
 
-parser.add_argument('--batch_K1', type=int, default=256,help='Entity dimension') #batch K1
-parser.add_argument('--batch_K2', type=int, default=64,help='Concept dimension') #batch K2
-parser.add_argument('--batch_A', type=int, default=128,help='Entity dimension') #batch AM
+parser.add_argument('--batch_K1', type=int, default=256, help='Entity dimension') #batch K1
+parser.add_argument('--batch_K2', type=int, default=64, help='Concept dimension') #batch K2
+parser.add_argument('--batch_A', type=int, default=128, help='Entity dimension') #batch AM
+parser.add_argument('--lr', type=float, default= 0.0005, help ='learning rate')
 
 parser.add_argument('--a1', type=float, default=2.5, metavar='A',help='ins learning ratio')
 parser.add_argument('--a2', type=float, default=1.0, metavar='a',help='onto learning ratio')
@@ -50,6 +52,12 @@ parser.add_argument('--m2', type=float, default=1.0, help='learning rate')
 parser.add_argument('--L1', type=bool, default=False, help='learning rate')
 parser.add_argument('--fold', type=int, default=3, metavar='E',help='number of epochs')
 args = parser.parse_args()
+
+wandb.init(project="box-joie",  reinit=True)
+wandb.config.update(args)
+
+if args.bridge == 'box':
+	args.dim2 = args.dim1
 
 if args.bridge == "CG" and args.dim1 != args.dim2:
 	print("Warning! CG does not allow ")
@@ -124,7 +132,7 @@ m_train.build(this_data, method=args.method, bridge=args.bridge, dim1=args.dim1,
 	log_save_path = tf_log_path , L1=False)
 
 
-m_train.train(epochs=100, save_every_epoch=1, lr=0.0005, a1=args.a1, a2=args.a2, m1=args.m1, m2=args.m2, AM_fold=args.fold)
+m_train.train(epochs=100, save_every_epoch=1, lr=args.lr, a1=args.a1, a2=args.a2, m1=args.m1, m2=args.m2, AM_fold=args.fold)
 
 
 

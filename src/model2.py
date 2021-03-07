@@ -31,7 +31,20 @@ class TFParts(object):
     This is to keep TensorFlow-related components in a neat shell.
     '''
 
-    def __init__(self, num_rels1, num_ents1, num_rels2, num_ents2, method='distmult', bridge='CG', dim1=300, dim2=100, batch_sizeK1=512, batch_sizeK2=512, batch_sizeA=256, L1=False):
+    def __init__(self,
+                 num_rels1,
+                 num_ents1,
+                 num_rels2,
+                 num_ents2,
+                 method='distmult',
+                 bridge='box',
+                 dim1=300,
+                 dim2=100,
+                 batch_sizeK1=512,
+                 batch_sizeK2=512,
+                 batch_sizeA=256,
+                 L1=False):
+
         self._num_relsA = num_rels1
         self._num_entsA = num_ents1
         self._num_relsB = num_rels2

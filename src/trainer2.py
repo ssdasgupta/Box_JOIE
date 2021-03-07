@@ -7,6 +7,7 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 import time
+import wandb
 
 from multiG import multiG 
 import box_model as model
@@ -178,6 +179,10 @@ class Trainer(object):
             '''
         this_total_loss = np.sum(this_loss)
         print("KM Loss of epoch",epoch,":", this_total_loss)
+        
+        metric = {"A_B_loss": this_total_loss}
+        wandb.log(metric, commit=False)
+        
         return this_total_loss
 
     def train1epoch_AM(self, sess, num_AM_batch, a1, a2, lr, epoch):
@@ -214,6 +219,8 @@ class Trainer(object):
 
         this_total_loss = np.sum(this_loss)
         print("AM Loss of epoch", epoch, ":", this_total_loss)
+        metric = {"AM_loss": this_total_loss}
+        wandb.log(metric)
         return this_total_loss
 
     def train1epoch_associative(self, sess, lr, a1, a2, epoch, AM_fold = 1):

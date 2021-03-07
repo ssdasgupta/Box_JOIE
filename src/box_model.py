@@ -5,6 +5,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+import wandb
 import tensorflow as tf
 
 from multiG import multiG
@@ -48,6 +49,8 @@ class TFParts(object):
         self.bridge=bridge
         self._dim1 = dim1
         self._dim2 = dim2
+        if bridge =='box':
+            self._dim2 = dim1
         self._hidden_dim = hid_dim = 50
         self._batch_sizeK1 = batch_sizeK1
         self._batch_sizeK2 = batch_sizeK2
@@ -240,14 +243,7 @@ class TFParts(object):
                 dtype=tf.int64,
                 shape=[self._batch_sizeA],
                 name='AM_nindex2')
-            
-            # AM_ent1_batch = tf.nn.l2_normalize(tf.nn.embedding_lookup(ht1, AM_index1), 1)
-            # AM_ent1_nbatch = tf.nn.l2_normalize(tf.nn.embedding_lookup(ht1, AM_nindex1), 1)
-            ## taking the normalization from the instance entities.
-            # self.instance_delta = ht1 = tf.get_variable(
-            #     name='ht1',  # for t AND h
-            #     shape=[self._num_entsA, self._dim1],
-            #     dtype=tf.float32, trainable = False)
+
             AM_ent1_batch = tf.nn.embedding_lookup(ht1, AM_index1)
             AM_ent1_nbatch = tf.nn.embedding_lookup(ht1, AM_nindex1)
             #self.instance_delta = tf.Variable(tf.ones_like(AM_ent1_batch), trainable = False) * 10**(-7)
@@ -268,66 +264,6 @@ class TFParts(object):
 
             self._AM_loss = AM_loss = self._ht2.get_loss(logits, label)
 
-
-            # AM_ent2_batch = tf.nn.l2_normalize(tf.nn.embedding_lookup(ht2, AM_index2), 1)
-            # AM_ent2_nbatch = tf.nn.l2_normalize(tf.nn.embedding_lookup(ht2, AM_nindex2), 1)
-
-            # Affine map
-            # self._M = M = tf.get_variable(name='M', shape=[self._dim1, self._dim2],initializer=orthogonal_initializer(),dtype=tf.float32)
-            # self._b = bias = tf.get_variable(name='b', shape=[self._dim2],initializer=tf.truncated_normal_initializer,dtype=tf.float32)
-            # self._Mc = Mc = tf.get_variable(name='Mc', shape=[self._dim2, self._hidden_dim],initializer=orthogonal_initializer(),dtype=tf.float32)
-            # self._bc = b_c = tf.get_variable(name='bc', shape=[self._hidden_dim],initializer=tf.truncated_normal_initializer,dtype=tf.float32)
-            # self._Me = Me = tf.get_variable(name='Me', shape=[self._dim1, self._hidden_dim],initializer=orthogonal_initializer(),dtype=tf.float32)
-            # self._be = b_e = tf.get_variable(name='be', shape=[self._hidden_dim],initializer=tf.truncated_normal_initializer,dtype=tf.float32)
-                
-            # if self.bridge == 'CG':
-            #     AM_pos_loss_matrix = tf.subtract( AM_ent1_batch, AM_ent2_batch )
-            #     AM_neg_loss_matrix = tf.subtract( AM_ent1_nbatch, AM_ent2_nbatch )
-            # elif self.bridge == 'CMP-linear':
-            #     # c - (W * e + b)
-            #     #AM_pos_loss_matrix = tf.subtract( tf.add(tf.matmul(AM_ent1_batch, M),bias), AM_ent2_batch )
-            #     AM_pos_loss_matrix = tf.subtract( tf.nn.l2_normalize(tf.add(tf.matmul(AM_ent1_batch, M),bias), 1), AM_ent2_batch )
-            #     AM_neg_loss_matrix = tf.subtract( tf.nn.l2_normalize(tf.add(tf.matmul(AM_ent1_nbatch, M),bias), 1), AM_ent2_nbatch )
-            # elif self.bridge == 'CMP-single':
-            #     # c - \sigma( W * e + b )
-            #     #AM_pos_loss_matrix = tf.subtract( tf.tanh(tf.add(tf.matmul(AM_ent1_batch, M),bias)), AM_ent2_batch )
-            #     AM_pos_loss_matrix = tf.subtract( tf.nn.l2_normalize( tf.tanh(tf.add(tf.matmul(AM_ent1_batch, M),bias)),1), AM_ent2_batch )
-            #     AM_neg_loss_matrix = tf.subtract( tf.nn.l2_normalize( tf.tanh(tf.add(tf.matmul(AM_ent1_nbatch, M),bias)),1), AM_ent2_nbatch )
-            # elif self.bridge == 'CMP-double':
-            #     # \sigma (W1 * c + bias1) - \sigma(W2 * c + bias1) --> More parameters to be defined
-            #     #AM_pos_loss_matrix = tf.subtract( tf.add(tf.matmul(AM_ent1_batch, Me), b_e), tf.add(tf.matmul(AM_ent2_batch, Mc), b_c))
-            #     #AM_pos_loss_matrix = tf.subtract( tf.nn.l2_normalize(tf.add(tf.matmul(AM_ent1_batch, Me), b_e),1), tf.nn.l2_normalize(tf.add(tf.matmul(AM_ent2_batch, Mc), b_c),1))
-            #     AM_pos_loss_matrix = tf.subtract( tf.nn.l2_normalize( tf.tanh(tf.add(tf.matmul(AM_ent1_batch, Me), b_e)),1), tf.nn.l2_normalize(tf.tanh(tf.add(tf.matmul(AM_ent2_batch, Mc), b_c)),1))
-            #     AM_neg_loss_matrix = tf.subtract( tf.nn.l2_normalize( tf.tanh(tf.add(tf.matmul(AM_ent1_nbatch, Me), b_e)),1), tf.nn.l2_normalize(tf.tanh(tf.add(tf.matmul(AM_ent2_nbatch, Mc), b_c)),1))
-            # else:
-            #     raise ValueError('Bridge method not valid!')
-
-            # '''
-            # if self.L1:
-            #     self._AM_loss = AM_loss = tf.reduce_sum(
-            #     tf.reduce_sum(tf.abs(AM_loss_matrix),1)
-            #     ) / self._batch_sizeA
-            # else:
-            #     self._AM_loss = AM_loss = tf.reduce_sum(
-            #     tf.sqrt(tf.reduce_sum(tf.square(AM_loss_matrix), 1)
-            #     )
-            #     ) / self._batch_sizeA
-            # '''
-            # # hinge loss for AM pos and neg batch
-            
-            # # Hinge Loss for AM
-            # if self.L1:
-            #     self._AM_loss = AM_loss = tf.reduce_sum(
-            #         tf.maximum(
-            #             tf.subtract(tf.add(tf.reduce_sum(tf.abs(AM_pos_loss_matrix), 1), self._mA),
-            #                 tf.reduce_sum(tf.abs(AM_neg_loss_matrix), 1)), 
-            #             0.)) / self._batch_sizeA
-            # else:
-            #     self._AM_loss = AM_loss = tf.reduce_sum(
-            #         tf.maximum(
-            #             tf.subtract(tf.add(tf.sqrt(tf.reduce_sum(tf.square(AM_pos_loss_matrix), 1)), self._mA),
-            #                 tf.sqrt(tf.reduce_sum(tf.square(AM_neg_loss_matrix), 1))), 
-            #             0.)) / self._batch_sizeA
 
             tf.summary.scalar("A_loss", A_loss)
             tf.summary.scalar("B_loss", B_loss)
