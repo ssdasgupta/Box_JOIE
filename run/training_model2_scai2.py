@@ -87,7 +87,7 @@ alignf = args.alignf
 #check method and bridge
 if args.method not in ['transe','distmult','hole']:
 	raise ValueError("Embedding method not valid!")
-if args.bridge not in ['CG','CMP-linear','CMP-single','CMP-double']:
+if args.bridge not in ['CG','CMP-linear','CMP-single','CMP-double', 'box']:
 	raise ValueError("Bridge method not valid!")
 
 #{{{ path set
