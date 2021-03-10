@@ -22,9 +22,9 @@ from multiG import multiG   # we don't import individual things in a model. This
 import box_model as model
 from trainer2 import Trainer
 
-def make_hparam_string(method,bridge,dim1, dim2, a1, a2, m1, fold):
+def make_hparam_string(method, bridge, dim1, dim2, lr, a1, a2, m1, fold):
 	# input params: dim, onto_ratio, type_ratio, lr, 
-	return "%s_%s_dim1_%s_dim2_%s_a1_%s_a2_%s_m1_%s_fold_%s" % (method, bridge, dim1, dim2, a1, a2, m1, fold) #update dim
+	return "%s_%s_dim1_%s_dim2_%s_lr_%s_a1_%s_a2_%s_m1_%s_fold_%s" % (method, bridge, dim1, dim2, lr, a1, a2, m1, fold) #update dim
 
 # parameter parsing
 parser = argparse.ArgumentParser(description='JOIE Training')
@@ -68,7 +68,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = args.GPU
 #modelname = 'mtranse_hparams'
 modelname = args.modelname
 path_prefix = './model/'+modelname+'/'
-hparams_str = make_hparam_string(args.method, args.bridge, args.dim1, args.dim2, args.a1, args.a2, args.m1, args.fold) #update dim
+hparams_str = make_hparam_string(args.method, args.bridge, args.dim1, args.dim2, args.lr, args.a1, args.a2, args.m1, args.fold) #update dim
 model_prefix = path_prefix+hparams_str
 
 model_path = model_prefix+"/"+args.method+'-model-m2.ckpt'
