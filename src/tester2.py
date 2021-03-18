@@ -290,8 +290,8 @@ class Tester(object):
                 continue
             if (not limit_ids is None) and i not in limit_ids:
                 continue
-            meet_min = np.maximum(vec_min, vec_pool_min[i])  # batchsize * embed_size
 
+            meet_min = np.maximum(vec_min, vec_pool_min[i])  # batchsize * embed_size
             meet_max = np.minimum(vec_max, vec_pool_max[i])
             dist = -np.prod(self.softplus((meet_max - meet_min)), axis=-1)
             if len(q) < topk:

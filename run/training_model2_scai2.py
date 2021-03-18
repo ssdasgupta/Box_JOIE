@@ -49,6 +49,10 @@ parser.add_argument('--a1', type=float, default=2.5, metavar='A',help='ins learn
 parser.add_argument('--a2', type=float, default=1.0, metavar='a',help='onto learning ratio')
 parser.add_argument('--m1', type=float, default=0.5, help='learning rate')
 parser.add_argument('--m2', type=float, default=1.0, help='learning rate')
+
+parser.add_argument('--vol_temp', type=float, default=1.0, help='volume temperature')
+parser.add_argument('--int_temp', type=float, default=0.1, help='intersection temperature')
+
 parser.add_argument('--L1', type=bool, default=False, help='learning rate')
 parser.add_argument('--fold', type=int, default=3, metavar='E',help='number of epochs')
 args = parser.parse_args()
@@ -128,8 +132,8 @@ m_train = Trainer()
 #udpate dim
 m_train.build(this_data, method=args.method, bridge=args.bridge, dim1=args.dim1, dim2=args.dim2, 
 	batch_sizeK1=args.batch_K1, batch_sizeK2=args.batch_K2, batch_sizeA=args.batch_A, 
-	a1=args.a1, a2=args.a2, m1=args.m1, m2=args.m2, save_path = model_path, multiG_save_path = data_path, 
-	log_save_path = tf_log_path , L1=False)
+	a1=args.a1, a2=args.a2, m1=args.m1, m2=args.m2, vol_temp=args.vol_temp , int_temp = args.int_temp, 
+	save_path = model_path, multiG_save_path = data_path, log_save_path = tf_log_path , L1=False)
 
 
 m_train.train(epochs=100, save_every_epoch=1, lr=args.lr, a1=args.a1, a2=args.a2, m1=args.m1, m2=args.m2, AM_fold=args.fold)

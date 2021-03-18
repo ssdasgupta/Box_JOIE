@@ -11,11 +11,13 @@ class BoxMethods(object):
     def __init__(self,
                  embed_dim,
                  vocab_size,
-                 temperature = 1.0, 
+                 temperature = 1.0,
+                 int_temp = 0.1,
                  delta_space = 'log'):
         self.embed_dim = embed_dim
         self.vocab_size = vocab_size
-        self.temperature = temperature
+        self.vol_temp = temperature
+        self.int_temp = int_temp
         self.delta_space = delta_space
         self.min_embed, self.delta_embed = self.init_word_embedding()
 
@@ -62,21 +64,34 @@ class BoxMethods(object):
         t1_min_embed, t1_max_embed, t2_min_embed, t2_max_embed)
         """get conditional probabilities"""
         overlap_volume = tf.reduce_prod(tf.nn.softplus((meet_max - meet_min)
-                                                       /self.temperature)*self.temperature, axis=-1)
+                                                       /self.vol_temp)*self.vol_temp, axis=-1)
         rhs_volume = tf.reduce_prod(tf.nn.softplus((t1_max_embed - t1_min_embed)
-                                                   /self.temperature)*self.temperature, axis=-1)
+                                                   /self.vol_temp)*self.vol_temp, axis=-1)
         conditional_logits = tf.log(overlap_volume+1e-10) - tf.log(rhs_volume+1e-10)
         return conditional_logits
 
-    def calc_intersection(self, t1_min_embed, t1_max_embed, t2_min_embed, t2_max_embed):
+    def calc_intersection(self,
+                          t1_min_embed,
+                          t1_max_embed,
+                          t2_min_embed,
+                          t2_max_embed,
+                          method='gumbel', #'gumbel'
+                          ):
         """
         # two box embeddings are t1_min_embed, t1_max_embed, t2_min_embed, t2_max_embed
         Returns:
             join box, min box, and disjoint condition:
         """
         # join is min value of (a, c), max value of (b, d)
-        meet_min = tf.maximum(t1_min_embed, t2_min_embed)  # batchsize * embed_size
-        meet_max = tf.minimum(t1_max_embed, t2_max_embed)  # batchsize * embed_size
+        if method == 'gumbel':
+            meet_min = self.int_temp * tf.reduce_logsumexp([t1_min_embed /self.int_temp , t2_min_embed /self.int_temp], 0)
+            meet_min = tf.maximum(meet_min, tf.maximum(t1_min_embed, t2_min_embed))
+            meet_max = - self.int_temp * tf.reduce_logsumexp([-t1_min_embed /self.int_temp , -t2_min_embed /self.int_temp], 0)
+            meet_max = tf.minimum(meet_max, tf.minimum(t1_max_embed, t2_max_embed))
+        else:
+            meet_min = tf.maximum(t1_min_embed, t2_min_embed)  # batchsize * embed_size
+            meet_max = tf.minimum(t1_max_embed, t2_max_embed)  # batchsize * embed_size
+
         return meet_min, meet_max
 
     def get_loss(self, logits, target):

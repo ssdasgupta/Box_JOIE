@@ -40,7 +40,13 @@ class TFParts(object):
     
     '''
 
-    def __init__(self, num_rels1, num_ents1, num_rels2, num_ents2, method='distmult', bridge='CG', dim1=300, dim2=100, batch_sizeK1=512, batch_sizeK2=512, batch_sizeA=256, L1=False):
+    def __init__(self, num_rels1,
+                 num_ents1, num_rels2, num_ents2, 
+                 method='distmult', bridge='CG', 
+                 dim1=300, dim2=100,
+                 batch_sizeK1=512, batch_sizeK2=512, batch_sizeA=256, 
+                 vol_temp=1.0, int_temp=0.1,
+                 L1=False):
         self._num_relsA = num_rels1
         self._num_entsA = num_ents1
         self._num_relsB = num_rels2
@@ -60,6 +66,10 @@ class TFParts(object):
         self._m1 = 0.5
         self._m2 = 1.0
         self._mA = 0.5
+        #temperatures
+        self.vol_temp = vol_temp
+        self.int_temp = int_temp
+
         self.L1 = L1
         self.build()
         print("TFparts build up! Embedding method: ["+self.method+"]. Bridge method:["+self.bridge+"]")
@@ -90,22 +100,22 @@ class TFParts(object):
             
             # KG2 --- Again, What is KG1? Is this ontology or instances?
 
-            self._ht2 = ht2 = BoxMethods(self._dim2, self._num_entsB)
+            self._ht2 = ht2 = BoxMethods(self._dim2, self._num_entsB, 
+                                   temperature = self.vol_temp, int_temp = self.int_temp)
 
             # self._ht2 = ht2 = tf.get_variable(
             #     name='ht2',  # for t AND h
             #     shape=[self._num_entsB, self._dim2],
             #     dtype=tf.float32)
-            self._r2 = r2 = tf.get_variable(
-                name='r2',
+            self._r2_head = r2_head = tf.get_variable(
+                name='r2_head',
                 shape=[self._num_relsB, self._dim2*2],
                 dtype=tf.float32)
 
-
-            tf.summary.histogram("ht1", ht1)
-            # tf.summary.histogram("ht2", ht2)
-            tf.summary.histogram("r1", r1)
-            tf.summary.histogram("r2", r2)
+            self._r2_tail = r2_tail = tf.get_variable(
+                name='r2_tail',
+                shape=[self._num_relsB, self._dim2*2],
+                dtype=tf.float32)
 
             self._ht1_norm = tf.nn.l2_normalize(ht1, 1)
             # self._ht2_norm = tf.nn.l2_normalize(ht2, 1) ## --- maybe not require for this one, if we are considering boxes.
@@ -209,11 +219,12 @@ class TFParts(object):
                 shape=[self._batch_sizeK2],
                 name='B_tn_index')
             
-            B_rel_batch = tf.nn.embedding_lookup(r2, B_r_index)
-            h_min_embed, h_max_embed = self._ht2.get_transformed_embedding(B_h_index, B_rel_batch)
-            t_min_embed, t_max_embed = self._ht2.get_transformed_embedding(B_t_index, B_rel_batch)
-            hn_min_embed, hn_max_embed = self._ht2.get_transformed_embedding(B_hn_index, B_rel_batch)
-            tn_min_embed, tn_max_embed = self._ht2.get_transformed_embedding(B_tn_index, B_rel_batch)
+            B_rel_batch_head = tf.nn.embedding_lookup(r2_head, B_r_index)
+            B_rel_batch_tail = tf.nn.embedding_lookup(r2_tail, B_r_index)
+            h_min_embed, h_max_embed = self._ht2.get_transformed_embedding(B_h_index, B_rel_batch_head)
+            t_min_embed, t_max_embed = self._ht2.get_transformed_embedding(B_t_index, B_rel_batch_tail)
+            hn_min_embed, hn_max_embed = self._ht2.get_transformed_embedding(B_hn_index, B_rel_batch_head)
+            tn_min_embed, tn_max_embed = self._ht2.get_transformed_embedding(B_tn_index, B_rel_batch_tail)
 
             pos_logit = self._ht2.get_conditional_probability(h_min_embed, h_max_embed, 
                 t_min_embed, t_max_embed)
@@ -264,10 +275,6 @@ class TFParts(object):
 
             self._AM_loss = AM_loss = self._ht2.get_loss(logits, label)
 
-
-            tf.summary.scalar("A_loss", A_loss)
-            tf.summary.scalar("B_loss", B_loss)
-            tf.summary.scalar("AM_loss", AM_loss)
             
             # Optimizer
             self._lr = lr = tf.placeholder(tf.float32)
@@ -277,5 +284,4 @@ class TFParts(object):
             self._train_op_AM = train_op_AM = opt.minimize(AM_loss)
 
             # Saver
-            self.summary_op = tf.summary.merge_all()
             self._saver = tf.train.Saver()
