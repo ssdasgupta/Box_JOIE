@@ -22,9 +22,9 @@ from multiG import multiG   # we don't import individual things in a model. This
 import box_model as model
 from trainer2 import Trainer
 
-def make_hparam_string(method, bridge, dim1, dim2, lr, a1, a2, m1, fold):
+def make_hparam_string(method, bridge, int_method, dim1, dim2, lr, a1, a2, m1, fold):
 	# input params: dim, onto_ratio, type_ratio, lr, 
-	return "%s_%s_dim1_%s_dim2_%s_lr_%s_a1_%s_a2_%s_m1_%s_fold_%s" % (method, bridge, dim1, dim2, lr, a1, a2, m1, fold) #update dim
+	return "%s_%s_%s_dim1_%s_dim2_%s_lr_%s_a1_%s_a2_%s_m1_%s_fold_%s" % (method, bridge, int_method, dim1, dim2, lr, a1, a2, m1, fold) #update dim
 
 # parameter parsing
 parser = argparse.ArgumentParser(description='JOIE Training')
@@ -48,10 +48,10 @@ parser.add_argument('--lr', type=float, default= 0.0005, help ='learning rate')
 parser.add_argument('--a1', type=float, default=2.5, metavar='A',help='ins learning ratio')
 parser.add_argument('--a2', type=float, default=1.0, metavar='a',help='onto learning ratio')
 parser.add_argument('--m1', type=float, default=0.5, help='learning rate')
-parser.add_argument('--m2', type=float, default=1.0, help='learning rate')
 
 parser.add_argument('--vol_temp', type=float, default=1.0, help='volume temperature')
 parser.add_argument('--int_temp', type=float, default=0.1, help='intersection temperature')
+parser.add_argument('--int_method', type=str, default='gumbel', help='intersection method. Choice: gumbel, hard')
 
 parser.add_argument('--L1', type=bool, default=False, help='learning rate')
 parser.add_argument('--fold', type=int, default=3, metavar='E',help='number of epochs')
@@ -72,7 +72,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = args.GPU
 #modelname = 'mtranse_hparams'
 modelname = args.modelname
 path_prefix = './model/'+modelname+'/'
-hparams_str = make_hparam_string(args.method, args.bridge, args.dim1, args.dim2, args.lr, args.a1, args.a2, args.m1, args.fold) #update dim
+hparams_str = make_hparam_string(args.method, args.bridge, args.dim1, args.int_method, args.dim2, args.lr, args.a1, args.a2, args.m1, args.fold) #update dim
 model_prefix = path_prefix+hparams_str
 
 model_path = model_prefix+"/"+args.method+'-model-m2.ckpt'
@@ -132,11 +132,11 @@ m_train = Trainer()
 #udpate dim
 m_train.build(this_data, method=args.method, bridge=args.bridge, dim1=args.dim1, dim2=args.dim2, 
 	batch_sizeK1=args.batch_K1, batch_sizeK2=args.batch_K2, batch_sizeA=args.batch_A, 
-	a1=args.a1, a2=args.a2, m1=args.m1, m2=args.m2, vol_temp=args.vol_temp , int_temp = args.int_temp, 
+	a1=args.a1, a2=args.a2, m1=args.m1, vol_temp=args.vol_temp , int_temp=args.int_temp, int_method=args.int_method,
 	save_path = model_path, multiG_save_path = data_path, log_save_path = tf_log_path , L1=False)
 
 
-m_train.train(epochs=100, save_every_epoch=1, lr=args.lr, a1=args.a1, a2=args.a2, m1=args.m1, m2=args.m2, AM_fold=args.fold)
+m_train.train(epochs=100, save_every_epoch=1, lr=args.lr, a1=args.a1, a2=args.a2, m1=args.m1, AM_fold=args.fold)
 
 
 

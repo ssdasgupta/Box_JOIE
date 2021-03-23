@@ -45,7 +45,7 @@ class TFParts(object):
                  method='distmult', bridge='CG', 
                  dim1=300, dim2=100,
                  batch_sizeK1=512, batch_sizeK2=512, batch_sizeA=256, 
-                 vol_temp=1.0, int_temp=0.1,
+                 vol_temp=1.0, int_temp=0.1, int_method='gumbel',
                  L1=False):
         self._num_relsA = num_rels1
         self._num_entsA = num_ents1
@@ -64,16 +64,16 @@ class TFParts(object):
         self._epoch_loss = 0
         # margins
         self._m1 = 0.5
-        self._m2 = 1.0
-        self._mA = 0.5
+
         #temperatures
         self.vol_temp = vol_temp
         self.int_temp = int_temp
+        self.int_method = int_method
 
         self.L1 = L1
         self.build()
-        print("TFparts build up! Embedding method: ["+self.method+"]. Bridge method:["+self.bridge+"]")
-        print("Margin Paramter: [m1] "+str(self._m1)+ " [m2] " +str(self._m2))
+        print("TFparts build up! Embedding method: ["+self.method+"]. Bridge method:["+self.bridge+"]. intersection method: ["+self.int_method+"]")
+        print("Margin Paramter: [m1] "+str(self._m1))
 
     @property
     def dim(self):
@@ -101,7 +101,8 @@ class TFParts(object):
             # KG2 --- Again, What is KG1? Is this ontology or instances?
 
             self._ht2 = ht2 = BoxMethods(self._dim2, self._num_entsB, 
-                                   temperature = self.vol_temp, int_temp = self.int_temp)
+                                   temperature=self.vol_temp, int_temp=self.int_temp,
+                                   int_method=self.int_method)
 
             # self._ht2 = ht2 = tf.get_variable(
             #     name='ht2',  # for t AND h

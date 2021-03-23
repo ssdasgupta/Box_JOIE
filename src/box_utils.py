@@ -13,12 +13,14 @@ class BoxMethods(object):
                  vocab_size,
                  temperature = 1.0,
                  int_temp = 0.1,
-                 delta_space = 'log'):
+                 delta_space = 'log',
+                 int_method = 'gumbel'):
         self.embed_dim = embed_dim
         self.vocab_size = vocab_size
         self.vol_temp = temperature
         self.int_temp = int_temp
         self.delta_space = delta_space
+        self.int_method = int_method
         self.min_embed, self.delta_embed = self.init_word_embedding()
 
     @property
@@ -67,7 +69,7 @@ class BoxMethods(object):
                                                        /self.vol_temp)*self.vol_temp, axis=-1)
         rhs_volume = tf.reduce_prod(tf.nn.softplus((t1_max_embed - t1_min_embed)
                                                    /self.vol_temp)*self.vol_temp, axis=-1)
-        conditional_logits = tf.log(overlap_volume+1e-10) - tf.log(rhs_volume+1e-10)
+        conditional_logits = tf.log(overlap_volume + 1e-19) - tf.log(rhs_volume + 1e-19)
         return conditional_logits
 
     def calc_intersection(self,
@@ -80,20 +82,30 @@ class BoxMethods(object):
         """
         # two box embeddings are t1_min_embed, t1_max_embed, t2_min_embed, t2_max_embed
         Returns:
-            join box, min box, and disjoint condition:
+            meet_min and meet_max
+
+            *---------\-----| -------\ 
+            meet_min = max (*, \-) and
+            meet_max = min(|, \)
+            smooth max is equivalent to logsum_exp
+            smooth min is equivalent to -logsum_exp(-parameters)
+
         """
-        # join is min value of (a, c), max value of (b, d)
-        if method == 'gumbel':
+
+        if self.int_method == 'gumbel':
             meet_min = self.int_temp * tf.reduce_logsumexp([t1_min_embed /self.int_temp , t2_min_embed /self.int_temp], 0)
             meet_min = tf.maximum(meet_min, tf.maximum(t1_min_embed, t2_min_embed))
-            meet_max = - self.int_temp * tf.reduce_logsumexp([-t1_min_embed /self.int_temp , -t2_min_embed /self.int_temp], 0)
+            meet_max = - self.int_temp * tf.reduce_logsumexp([-t1_max_embed /self.int_temp , -t2_max_embed /self.int_temp], 0)
             meet_max = tf.minimum(meet_max, tf.minimum(t1_max_embed, t2_max_embed))
-        else:
+        elif self.int_method == 'hard':
             meet_min = tf.maximum(t1_min_embed, t2_min_embed)  # batchsize * embed_size
             meet_max = tf.minimum(t1_max_embed, t2_max_embed)  # batchsize * embed_size
+        else:
+            raise ValueError("Intersection Method Not found")
+            return
 
         return meet_min, meet_max
 
     def get_loss(self, logits, target):
         return - tf.reduce_mean(tf.multiply(logits, target) + tf.multiply(
-            tf.log(1 - tf.exp(logits) + 1e-10), 1 - target))
+            tf.log(1 - tf.exp(logits) + 1e-19), 1 - target))
