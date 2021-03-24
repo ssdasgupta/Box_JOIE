@@ -37,11 +37,18 @@ class Tester(object):
         self.sess = None
         self.softplus = lambda x: np.log1p(np.exp(x))
     
-    def build(self, save_path = 'this-model.ckpt', data_save_path = 'this-data.bin', method='transe', bridge='CG'):
+    def build(self,
+              save_path = 'this-model.ckpt',
+              data_save_path = 'this-data.bin',
+              method='transe',
+              bridge='CG',
+              int_method='gumbel'):
+
         self.multiG = multiG.multiG()
         self.multiG.load(data_save_path)
         self.method = method
         self.bridge = bridge
+        self.int_method = int_method
 
         self.tf_parts = model.TFParts(num_rels1=self.multiG.KG1.num_rels(),
                                  num_ents1=self.multiG.KG1.num_ents(),
@@ -51,8 +58,9 @@ class Tester(object):
                                  bridge=self.bridge,
                                  dim1=self.multiG.dim1,
                                  dim2=self.multiG.dim2,
+                                 int_method=int_method,
                                  L1=self.multiG.L1)
-        print(self.method,self.bridge) #load
+        print(self.method,self.bridge, self.int_method) #load
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
         self.sess = sess = tf.Session(config=config)
@@ -72,19 +80,21 @@ class Tester(object):
         #     self.mat = np.array(value_M)
         #     self._b = np.array(value_b)
         #     print(self.mat.shape, self._b.shape)
-        value_ht1, value_r1, ht2_min, ht2_delta, value_r2 = sess.run(
+        value_ht1, value_r1, ht2_min, ht2_delta, value_r2_head, value_r2_tail = sess.run(
             [self.tf_parts._ht1_norm,
              self.tf_parts._r1,
              self.tf_parts._ht2.min_embed,
              self.tf_parts._ht2.delta_embed,
-             self.tf_parts._r2])
+             self.tf_parts._r2_head,
+             self.tf_parts._r2_tail])
 
         self.vec_e[1] = np.array(value_ht1)
         self.vec_e[2] = np.array(ht2_min)
         self.vec_e[3] = np.array(ht2_delta)
         self.vec_r[1] = np.array(value_r1)
-        self.vec_r[2] = np.array(value_r2)
-        self._ht2 = BoxMethods(ht2_min.shape[1], ht2_min.shape[0])
+        self.vec_r[2] = np.array(value_r2_head)
+        self.vec_r[3] = np.array(value_r2_tail)
+        self._ht2 = BoxMethods(ht2_min.shape[1], ht2_min.shape[0], int_method=self.int_method)
         print(self.vec_e[1].shape, self.vec_e[2].shape, self.vec_r[1].shape, self.vec_r[2].shape)
         sess.close()
 
@@ -280,6 +290,7 @@ class Tester(object):
         else:
             KG = self.multiG.KG2
         return KG.rel_str2index(str)
+
     
     # input must contain a pool of vecs. return a list of indices and dist
     def kNN(self, vec_min, vec_max, vec_pool_min, vec_pool_max, topk=10, self_id=None, except_ids=None, limit_ids=None):
@@ -291,8 +302,18 @@ class Tester(object):
             if (not limit_ids is None) and i not in limit_ids:
                 continue
 
-            meet_min = np.maximum(vec_min, vec_pool_min[i])  # batchsize * embed_size
-            meet_max = np.minimum(vec_max, vec_pool_max[i])
+            if self.int_method == 'hard':
+                meet_min = np.maximum(vec_min, vec_pool_min[i])  # batchsize * embed_size
+                meet_max = np.minimum(vec_max, vec_pool_max[i])
+            elif self.int_method == 'gumbel':
+                meet_min = np.logaddexp(vec_min, vec_pool_min[i])
+                meet_min = np.maximum(meet_min, np.maximum(vec_min, vec_pool_min[i]))
+                meet_max = -np.logaddexp(-vec_max, -vec_pool_max[i])
+                meet_max = np.minimum(meet_max, np.minimum(vec_max, vec_pool_max[i]))
+            else:
+                raise ValueError("Intersection Method Not found")
+                return
+            
             dist = -np.prod(self.softplus((meet_max - meet_min)), axis=-1)
             if len(q) < topk:
                 HP.heappush(q, self.index_dist(i, dist))
@@ -327,8 +348,14 @@ class Tester(object):
     def rank_index_from(self, vec_min, vec_max, vec_pool_min, vec_pool_max, 
              index, self_id = None, except_ids=None, limit_ids=None):
 
-        meet_min = np.maximum(vec_min, vec_pool_min[index])  # batchsize * embed_size
-        meet_max = np.minimum(vec_max, vec_pool_max[index])
+        if self.int_method == 'hard':
+                meet_min = np.maximum(vec_min, vec_pool_min[index])  # batchsize * embed_size
+                meet_max = np.minimum(vec_max, vec_pool_max[index])
+        elif self.int_method == 'gumbel':
+            meet_min = np.logaddexp(vec_min, vec_pool_min[index])
+            meet_min = np.maximum(meet_min, np.maximum(vec_min, vec_pool_min[index]))
+            meet_max = -np.logaddexp(-vec_max, -vec_pool_max[index])
+            meet_max = np.minimum(meet_max, np.minimum(vec_max, vec_pool_max[index]))
         dist = - np.prod(self.softplus((meet_max - meet_min)), axis=-1)
         rank = 1
         for i in range(len(vec_pool_min)):

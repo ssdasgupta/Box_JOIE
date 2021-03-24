@@ -35,6 +35,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = args.GPU
 path_prefix = args.modelname
 hparams_str = args.model
 args.method, args.bridge =  hparams_str.split('_')[0], hparams_str.split('_')[1]
+args.int_method = hparams_str.split('_')[4]
 model_file = path_prefix+"/"+hparams_str+"/"+args.method+'-model-m2.ckpt'
 data_file = path_prefix+"/"+hparams_str+"/"+args.method+'-multiG-m2.bin'
 test_data = args.testfile
@@ -52,7 +53,12 @@ max_check = 100000
 #for line in open(old_data):
 #    dup_set.add(line.rstrip().split('@@@')[0])
 tester = Tester()
-tester.build(save_path = model_file, data_save_path = data_file, method=args.method, bridge=args.bridge)
+tester.build(save_path = model_file,
+             data_save_path = data_file,
+             method=args.method,
+             bridge=args.bridge,
+             int_method=args.int_method
+             )
 tester.load_test_type(test_data, splitter = '\t', line_end = '\n')
 
 
