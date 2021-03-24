@@ -46,7 +46,7 @@ class TFParts(object):
                  dim1=300, dim2=100,
                  batch_sizeK1=512, batch_sizeK2=512, batch_sizeA=256, 
                  vol_temp=1.0, int_temp=0.1, int_method='gumbel',
-                 L1=False):
+                 transformation='relation_specific', L1=False):
         self._num_relsA = num_rels1
         self._num_entsA = num_ents1
         self._num_relsB = num_rels2
@@ -69,6 +69,9 @@ class TFParts(object):
         self.vol_temp = vol_temp
         self.int_temp = int_temp
         self.int_method = int_method
+
+        #Relation_transform
+        self.transformation = transformation
 
         self.L1 = L1
         self.build()
@@ -222,10 +225,16 @@ class TFParts(object):
             
             B_rel_batch_head = tf.nn.embedding_lookup(r2_head, B_r_index)
             B_rel_batch_tail = tf.nn.embedding_lookup(r2_tail, B_r_index)
-            h_min_embed, h_max_embed = self._ht2.get_transformed_embedding(B_h_index, B_rel_batch_head)
-            t_min_embed, t_max_embed = self._ht2.get_transformed_embedding(B_t_index, B_rel_batch_tail)
-            hn_min_embed, hn_max_embed = self._ht2.get_transformed_embedding(B_hn_index, B_rel_batch_head)
-            tn_min_embed, tn_max_embed = self._ht2.get_transformed_embedding(B_tn_index, B_rel_batch_tail)
+            if self.transformation == 'relation_specific':
+                h_min_embed, h_max_embed = self._ht2.get_transformed_embedding(B_h_index, B_rel_batch_head)
+                t_min_embed, t_max_embed = self._ht2.get_transformed_embedding(B_t_index, B_rel_batch_tail)
+                hn_min_embed, hn_max_embed = self._ht2.get_transformed_embedding(B_hn_index, B_rel_batch_head)
+                tn_min_embed, tn_max_embed = self._ht2.get_transformed_embedding(B_tn_index, B_rel_batch_tail)
+            else:
+                h_min_embed, h_max_embed = self._ht2.get_embedding(B_h_index)
+                t_min_embed, t_max_embed = self._ht2.get_embedding(B_t_index)
+                hn_min_embed, hn_max_embed = self._ht2.get_embedding(B_hn_index)
+                tn_min_embed, tn_max_embed = self._ht2.get_embedding(B_tn_index)
 
             pos_logit = self._ht2.get_conditional_probability(h_min_embed, h_max_embed, 
                 t_min_embed, t_max_embed)

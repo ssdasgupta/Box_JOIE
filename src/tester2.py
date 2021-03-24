@@ -352,10 +352,12 @@ class Tester(object):
                 meet_min = np.maximum(vec_min, vec_pool_min[index])  # batchsize * embed_size
                 meet_max = np.minimum(vec_max, vec_pool_max[index])
         elif self.int_method == 'gumbel':
+            # [Todo]: Need to divide by the int_temp
             meet_min = np.logaddexp(vec_min, vec_pool_min[index])
             meet_min = np.maximum(meet_min, np.maximum(vec_min, vec_pool_min[index]))
             meet_max = -np.logaddexp(-vec_max, -vec_pool_max[index])
             meet_max = np.minimum(meet_max, np.minimum(vec_max, vec_pool_max[index]))
+        # [Todo]: Need to substract the eular gamma
         dist = - np.prod(self.softplus((meet_max - meet_min)), axis=-1)
         rank = 1
         for i in range(len(vec_pool_min)):
@@ -363,8 +365,15 @@ class Tester(object):
                 continue
             if (not limit_ids is None) and i not in limit_ids:
                 continue
-            meet_min = np.maximum(vec_min, vec_pool_min[i])  # batchsize * embed_size
-            meet_max = np.minimum(vec_max, vec_pool_max[i])
+            if self.int_method == 'hard':
+                meet_min = np.maximum(vec_min, vec_pool_min[i])  # batchsize * embed_size
+                meet_max = np.minimum(vec_max, vec_pool_max[i])
+            elif self.int_method == 'gumbel':
+                meet_min = np.logaddexp(vec_min, vec_pool_min[i])
+                meet_min = np.maximum(meet_min, np.maximum(vec_min, vec_pool_min[i]))
+                meet_max = -np.logaddexp(-vec_max, -vec_pool_max[i])
+                meet_max = np.minimum(meet_max, np.minimum(vec_max, vec_pool_max[i]))
+
             dist_i = - np.prod(self.softplus((meet_max - meet_min)), axis=-1)
             if dist > dist_i:
                 rank += 1

@@ -30,7 +30,8 @@ class Trainer(object):
         self.sess = None
 
     def build(self, multiG, method='transe', bridge='CG-one',  dim1=300, dim2=50, batch_sizeK1=1024, batch_sizeK2=1024, 
-        batch_sizeA=32, a1=5., a2=0.5, m1=0.5, vol_temp=1.0, int_temp=0.1, int_method='gumbel', save_path = 'this-model.ckpt', multiG_save_path = 'this-multiG.bin', 
+        batch_sizeA=32, a1=5., a2=0.5, m1=0.5, vol_temp=1.0, int_temp=0.1, int_method='gumbel', 
+        transformation= 'relation_specific', save_path = 'this-model.ckpt', multiG_save_path = 'this-multiG.bin', 
         log_save_path = 'tf_log', L1=False):
         self.multiG = multiG
         self.method = method
@@ -58,6 +59,7 @@ class Trainer(object):
                                  batch_sizeA=self.batch_sizeA,
                                  vol_temp=vol_temp,
                                  int_temp=int_temp,
+                                 transformation=transformation,
                                  int_method=int_method,
                                  L1=self.L1)
         self.tf_parts._m1 = m1

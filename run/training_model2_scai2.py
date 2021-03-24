@@ -44,6 +44,7 @@ parser.add_argument('--batch_K1', type=int, default=256, help='Entity dimension'
 parser.add_argument('--batch_K2', type=int, default=64, help='Concept dimension') #batch K2
 parser.add_argument('--batch_A', type=int, default=128, help='Entity dimension') #batch AM
 parser.add_argument('--lr', type=float, default= 0.0005, help ='learning rate')
+parser.add_argument('--transformation', type=str, default='relation-specific', help='transformation of the enitites')
 
 parser.add_argument('--a1', type=float, default=2.5, metavar='A',help='ins learning ratio')
 parser.add_argument('--a2', type=float, default=1.0, metavar='a',help='onto learning ratio')
@@ -133,7 +134,7 @@ m_train = Trainer()
 m_train.build(this_data, method=args.method, bridge=args.bridge, dim1=args.dim1, dim2=args.dim2, 
 	batch_sizeK1=args.batch_K1, batch_sizeK2=args.batch_K2, batch_sizeA=args.batch_A, 
 	a1=args.a1, a2=args.a2, m1=args.m1, vol_temp=args.vol_temp , int_temp=args.int_temp, int_method=args.int_method,
-	save_path = model_path, multiG_save_path = data_path, log_save_path = tf_log_path , L1=False)
+	transformation=args.transformation, save_path = model_path, multiG_save_path = data_path, log_save_path = tf_log_path , L1=False)
 
 
 m_train.train(epochs=100, save_every_epoch=1, lr=args.lr, a1=args.a1, a2=args.a2, m1=args.m1, AM_fold=args.fold)
