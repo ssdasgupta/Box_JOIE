@@ -34,6 +34,8 @@ parser.add_argument('--bridge', type=str, help='entity-conept link method')
 parser.add_argument('--kg1f', type=str, help='KG1 file path')
 parser.add_argument('--kg2f', type=str, help='KG2 file path')
 parser.add_argument('--alignf', type=str, help='type link file path')
+parser.add_argument('--eval_file', type=str,help='test data file path')
+parser.add_argument('--eval_freq', type=int, help='eval frequency')
 parser.add_argument('--modelname', type=str,help='model name and data path')
 parser.add_argument('--GPU', type=str, default='0', help='GPU Usage')
 # hyper-parameters
@@ -134,11 +136,9 @@ m_train = Trainer()
 m_train.build(this_data, method=args.method, bridge=args.bridge, dim1=args.dim1, dim2=args.dim2, 
 	batch_sizeK1=args.batch_K1, batch_sizeK2=args.batch_K2, batch_sizeA=args.batch_A, 
 	a1=args.a1, a2=args.a2, m1=args.m1, vol_temp=args.vol_temp , int_temp=args.int_temp, int_method=args.int_method,
-	transformation=args.transformation, save_path = model_path, multiG_save_path = data_path, log_save_path = tf_log_path , L1=False)
+	transformation=args.transformation, save_path = model_path, multiG_save_path = data_path, log_save_path = tf_log_path, 
+	L1=False, eval_file=args.eval_file, eval_freq=args.eval_freq)
 
 
 m_train.train(epochs=100, save_every_epoch=1, lr=args.lr, a1=args.a1, a2=args.a2, m1=args.m1, AM_fold=args.fold)
-
-
-
 

@@ -74,6 +74,7 @@ class TFParts(object):
         self.transformation = transformation
 
         self.L1 = L1
+        self.mode = 'train'
         self.build()
         print("TFparts build up! Embedding method: ["+self.method+"]. Bridge method:["+self.bridge+"]. intersection method: ["+self.int_method+"]")
         print("Margin Paramter: [m1] "+str(self._m1))
@@ -236,7 +237,7 @@ class TFParts(object):
                 hn_min_embed, hn_max_embed = self._ht2.get_embedding(B_hn_index)
                 tn_min_embed, tn_max_embed = self._ht2.get_embedding(B_tn_index)
 
-            pos_logit = self._ht2.get_conditional_probability(h_min_embed, h_max_embed, 
+            self.pos_logit_B = pos_logit = self._ht2.get_conditional_probability(h_min_embed, h_max_embed, 
                 t_min_embed, t_max_embed)
             neg_logit = self._ht2.get_conditional_probability(hn_min_embed, hn_max_embed, 
                 tn_min_embed, tn_max_embed)
@@ -249,11 +250,11 @@ class TFParts(object):
             ######################## Type Loss #######################
             self._AM_index1 = AM_index1 = tf.placeholder(
                 dtype=tf.int64,
-                shape=[self._batch_sizeA],
+                shape=[None],
                 name='AM_index1')
             self._AM_index2 = AM_index2 = tf.placeholder(
                 dtype=tf.int64,
-                shape=[self._batch_sizeA],
+                shape=[None],
                 name='AM_index2')
             
             self._AM_nindex1 = AM_nindex1 = tf.placeholder(
@@ -276,7 +277,7 @@ class TFParts(object):
             AM_ent2_min, AM_ent2_max = self._ht2.get_embedding(AM_index2)
             AM_nent2_min, AM_nent2_max = self._ht2.get_embedding(AM_nindex2)
 
-            pos_logit = self._ht2.get_conditional_probability(AM_ent1_min, AM_ent1_max, 
+            self.pos_logit_AM = pos_logit = self._ht2.get_conditional_probability(AM_ent1_min, AM_ent1_max, 
                 AM_ent2_min, AM_ent2_max)
             neg_logit = self._ht2.get_conditional_probability(AM_nent1_min, AM_nent1_max, 
                 AM_nent2_min, AM_nent2_max)

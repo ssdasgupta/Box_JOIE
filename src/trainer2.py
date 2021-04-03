@@ -8,6 +8,7 @@ import numpy as np
 import tensorflow as tf
 import time
 import wandb
+import tqdm
 
 from multiG import multiG 
 import box_model as model
@@ -32,7 +33,7 @@ class Trainer(object):
     def build(self, multiG, method='transe', bridge='CG-one',  dim1=300, dim2=50, batch_sizeK1=1024, batch_sizeK2=1024, 
         batch_sizeA=32, a1=5., a2=0.5, m1=0.5, vol_temp=1.0, int_temp=0.1, int_method='gumbel', 
         transformation= 'relation_specific', save_path = 'this-model.ckpt', multiG_save_path = 'this-multiG.bin', 
-        log_save_path = 'tf_log', L1=False):
+        log_save_path = 'tf_log', L1=False, eval_file = None, eval_freq=2):
         self.multiG = multiG
         self.method = method
         self.bridge = bridge
@@ -46,6 +47,7 @@ class Trainer(object):
         self.log_save_path = log_save_path
         self.save_path = save_path
         self.L1 = self.multiG.L1 = L1
+        self.eval_freq = eval_freq
         self.tf_parts = model.TFParts(num_rels1=self.multiG.KG1.num_rels(),
                                  num_ents1=self.multiG.KG1.num_ents(),
                                  num_rels2=self.multiG.KG2.num_rels(),
@@ -63,6 +65,8 @@ class Trainer(object):
                                  int_method=int_method,
                                  L1=self.L1)
         self.tf_parts._m1 = m1
+        if eval_file:
+            self.load_test_type(eval_file)
 
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
@@ -244,19 +248,28 @@ class Trainer(object):
             loss_AM = self.train1epoch_AM(sess, num_AM_batch, a1, a2, lr, epoch)
         return (loss_KM, loss_AM)
 
-    def train(self, epochs=20, save_every_epoch=10, lr=0.001, a1=0.1, a2=0.05, m1=0.5, m2=1.0, AM_fold=1, half_loss_per_epoch=-1):
+    def train(self, epochs=20, save_every_epoch=10, lr=0.001, a1=0.1, a2=0.05, m1=0.5, m2=1.0, AM_fold=1, half_loss_per_epoch=-1,
+                 eval_freq=10):
         #sess = tf.Session()
         #sess.run(tf.initialize_all_variables())
         self.tf_parts._m1 = m1  
         t0 = time.time()
         for epoch in range(epochs):
+            if epoch % self.eval_freq == 0:
+                ranks, mrr = self.eval()
+                metric = {"eval_rank": ranks, "eval_mrr": mrr}
+                wandb.log(metric, commit=False)
+                print(f"Eval after {epoch} epochs: Rank {ranks}, mrr {mrr}")
+            
             if half_loss_per_epoch > 0 and (epoch + 1) % half_loss_per_epoch == 0:
                 lr /= 2.
             epoch_lossKM, epoch_lossAM = self.train1epoch_associative(self.sess, lr, a1, a2, epoch, AM_fold)
             print("Time use: %d" % (time.time() - t0))
+            
             if np.isnan(epoch_lossKM) or np.isnan(epoch_lossAM):
                 print("Training collapsed.")
                 return
+            
             if (epoch + 1) % save_every_epoch == 0:
                 this_save_path = self.tf_parts._saver.save(self.sess, self.save_path)
                 self.multiG.save(self.multiG_save_path)
@@ -265,6 +278,61 @@ class Trainer(object):
         self.multiG.save(self.multiG_save_path)
         print("MTransE saved in file: %s. Multi-graph saved in file: %s" % (this_save_path, self.multiG_save_path))
         print("Done")
+
+    def eval(self):
+        ranks = []
+        mrr = []
+        for ele in self.test_align:
+            self.tf_parts.mode = 'eval'
+            logits_AM = self.sess.run([self.tf_parts.pos_logit_AM],
+                    feed_dict={self.tf_parts._AM_index1: [ele[0]] * self.multiG.KG2.num_ents() , 
+                               self.tf_parts._AM_index2: np.arange(self.multiG.KG2.num_ents())})
+            self.tf_parts.mode = 'train'
+            rank = self.get_rank(logits_AM[0], ele[1])
+            ranks.append(rank) # Extra dim of len 1
+            mrr.append(1 / rank)
+        return np.mean(ranks), np.mean(mrr)
+    
+    def get_rank(self, score, target_idx):
+        target_value = score[target_idx]
+        before_me = np.where(score > target_value)
+        equal_me = np.where(np.where(score  == target_value)[0] != target_idx)
+        return len(before_me[0]) + len(equal_me[0]) /2 + 1
+
+
+
+    def load_test_type(self, filename, splitter = '\t', line_end = '\n', dedup=True):
+            num_lines = 0
+            align = []
+            lr_map = {}
+            rl_map = {}
+            dedup_set = set([])
+            for line in open(filename):
+                if dedup and line in dedup_set:
+                    continue
+                elif dedup:
+                    dedup_set.add(line)
+                line = line.rstrip(line_end).split(splitter)
+                if len(line) != 3:
+                    continue
+                num_lines += 1
+                e1 = self.multiG.KG1.ent_str2index(line[0])
+                e2 = self.multiG.KG2.ent_str2index(line[2])
+                if e1 == None or e2 == None:
+                    continue
+                align.append([e1, e2])
+                if lr_map.get(e1) == None:
+                    lr_map[e1] = set([e2])
+                else:
+                    lr_map[e1].add(e2)
+                if rl_map.get(e2) == None:
+                    rl_map[e2] = set([e1])
+                else:
+                    rl_map[e2].add(e1)
+            self.test_align = np.array(align, dtype=np.int32)
+            self.lr_map =lr_map
+            self.rl_map = rl_map
+            print("Loaded test data from %s, %d out of %d." % (filename, len(align), num_lines))
 
 # A safer loading is available in Tester, with parameters like batch_size and dim recorded in the corresponding Data component
 def load_tfparts(multiG, method='transe', bridge='CG-one', dim1=300, dim2=100, batch_sizeK1=1024, batch_sizeK=1024, batch_sizeA=64,

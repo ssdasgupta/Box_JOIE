@@ -75,13 +75,15 @@ cpu_count = multiprocessing.cpu_count()
 
 manager = Manager()
 index = Value('i', 0, lock=True) #index
+breakpoint()
 rst_predict = manager.list() #scores for each case
 rank_record = manager.list()
 prop_record = manager.list()
 t0 = time.time()
 
 def test(tester, index, rst_predict, rank_record, prop_record,verbose=True):
-    while index.value < len(tester.test_align) and index.value < 99:
+    while index.value < len(tester.test_align):
+        print(index.value)
         idx = index.value
         index.value += 1
         if idx > 0 and idx % 200 == 0:

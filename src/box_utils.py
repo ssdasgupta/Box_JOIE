@@ -27,8 +27,8 @@ class BoxMethods(object):
     def init_embedding_scale(self):
         """For different measures, min and delta have different init value. """
         if self.delta_space:
-            min_lower_scale, min_higher_scale = 1e-4, 0.9
-            delta_lower_scale, delta_higher_scale = -1.0, -0.1
+            min_lower_scale, min_higher_scale = 1e-3, 0.1#1e-4, 0.9
+            delta_lower_scale, delta_higher_scale = -0.1, 1.5#-1.0, -0.1
             # min_lower_scale, min_higher_scale = 1e-4, 0.5
             # delta_lower_scale, delta_higher_scale = -0.1, -0.0
         return min_lower_scale, min_higher_scale, delta_lower_scale, delta_higher_scale
