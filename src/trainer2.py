@@ -254,10 +254,12 @@ class Trainer(object):
         #sess.run(tf.initialize_all_variables())
         self.tf_parts._m1 = m1  
         t0 = time.time()
+        best_mrr = 0.0
         for epoch in range(epochs):
             if epoch % self.eval_freq == 0:
                 ranks, mrr = self.eval()
-                metric = {"eval_rank": ranks, "eval_mrr": mrr}
+                best_mrr = max(mrr, best_mrr)
+                metric = {"eval_rank": ranks, "eval_mrr": mrr, "best_mrr": best_mrr}
                 wandb.log(metric, commit=False)
                 print(f"Eval after {epoch} epochs: Rank {ranks}, mrr {mrr}")
             
