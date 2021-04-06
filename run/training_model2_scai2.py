@@ -55,6 +55,8 @@ parser.add_argument('--m1', type=float, default=0.5, help='learning rate')
 parser.add_argument('--vol_temp', type=float, default=1.0, help='volume temperature')
 parser.add_argument('--int_temp', type=float, default=0.1, help='intersection temperature')
 parser.add_argument('--int_method', type=str, default='gumbel', help='intersection method. Choice: gumbel, hard')
+parser.add_argument('--box_method', type=str, choices=['BoxMethods', 'BoxMethodLearntTemp', 'BoxMethodLearntTempScalar'],
+	default='BoxMethods', help='Which method to use for Boxes' )
 
 parser.add_argument('--L1', type=bool, default=False, help='learning rate')
 parser.add_argument('--fold', type=int, default=3, metavar='E',help='number of epochs')
@@ -136,8 +138,8 @@ m_train = Trainer()
 m_train.build(this_data, method=args.method, bridge=args.bridge, dim1=args.dim1, dim2=args.dim2, 
 	batch_sizeK1=args.batch_K1, batch_sizeK2=args.batch_K2, batch_sizeA=args.batch_A, 
 	a1=args.a1, a2=args.a2, m1=args.m1, vol_temp=args.vol_temp , int_temp=args.int_temp, int_method=args.int_method,
-	transformation=args.transformation, save_path = model_path, multiG_save_path = data_path, log_save_path = tf_log_path, 
-	L1=False, eval_file=args.eval_file, eval_freq=args.eval_freq)
+	box_method=args.box_method, transformation=args.transformation, save_path = model_path, multiG_save_path = data_path,
+	log_save_path = tf_log_path, L1=False, eval_file=args.eval_file, eval_freq=args.eval_freq)
 
 
 m_train.train(epochs=100, save_every_epoch=1, lr=args.lr, a1=args.a1, a2=args.a2, m1=args.m1, AM_fold=args.fold)

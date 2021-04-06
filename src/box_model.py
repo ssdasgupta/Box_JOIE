@@ -12,6 +12,14 @@ from multiG import multiG
 import pickle
 from utils import circular_correlation, np_ccorr
 from box_utils import BoxMethods
+from box_utils import BoxMethodLearntTemp
+from box_utils import BoxMethodLearntTempScalar
+
+methods = {
+    'BoxMethods': BoxMethods,
+    'BoxMethodLearntTemp': BoxMethodLearntTemp,
+    'BoxMethodLearntTempScalar': BoxMethodLearntTempScalar
+}
 
 # Orthogonal Initializer from
 # https://github.com/OlavHN/bnlstm
@@ -45,7 +53,7 @@ class TFParts(object):
                  method='distmult', bridge='CG', 
                  dim1=300, dim2=100,
                  batch_sizeK1=512, batch_sizeK2=512, batch_sizeA=256, 
-                 vol_temp=1.0, int_temp=0.1, int_method='gumbel',
+                 vol_temp=1.0, int_temp=0.1, int_method='gumbel', box_method='BoxMethods',
                  transformation='relation_specific', L1=False):
         self._num_relsA = num_rels1
         self._num_entsA = num_ents1
@@ -69,6 +77,7 @@ class TFParts(object):
         self.vol_temp = vol_temp
         self.int_temp = int_temp
         self.int_method = int_method
+        self.box_method = box_method
 
         #Relation_transform
         self.transformation = transformation
@@ -103,8 +112,9 @@ class TFParts(object):
                 dtype=tf.float32)
             
             # KG2 --- Again, What is KG1? Is this ontology or instances?
+            _BoxMethod = methods[self.box_method]
 
-            self._ht2 = ht2 = BoxMethods(self._dim2, self._num_entsB, 
+            self._ht2 = ht2 = _BoxMethod(self._dim2, self._num_entsB, 
                                    temperature=self.vol_temp, int_temp=self.int_temp,
                                    int_method=self.int_method)
 
@@ -237,10 +247,13 @@ class TFParts(object):
                 hn_min_embed, hn_max_embed = self._ht2.get_embedding(B_hn_index)
                 tn_min_embed, tn_max_embed = self._ht2.get_embedding(B_tn_index)
 
+            temperature = (self._ht2.get_temperature(B_h_index) + self._ht2.get_temperature(B_t_index)) / 2.
+            temperature_n = (self._ht2.get_temperature(B_hn_index) + self._ht2.get_temperature(B_tn_index)) / 2.
+            
             self.pos_logit_B = pos_logit = self._ht2.get_conditional_probability(h_min_embed, h_max_embed, 
-                t_min_embed, t_max_embed)
+                t_min_embed, t_max_embed, temperature)
             neg_logit = self._ht2.get_conditional_probability(hn_min_embed, hn_max_embed, 
-                tn_min_embed, tn_max_embed)
+                tn_min_embed, tn_max_embed, temperature_n)
             logits = tf.concat([pos_logit, neg_logit], 0)
             label = tf.concat([tf.ones_like(pos_logit),
                 tf.zeros_like(neg_logit)], 0)
@@ -276,11 +289,13 @@ class TFParts(object):
 
             AM_ent2_min, AM_ent2_max = self._ht2.get_embedding(AM_index2)
             AM_nent2_min, AM_nent2_max = self._ht2.get_embedding(AM_nindex2)
+            self.temperature = temperature = self._ht2.get_temperature(AM_index2)
+            temperature_n = self._ht2.get_temperature(AM_nindex2)
 
             self.pos_logit_AM = pos_logit = self._ht2.get_conditional_probability(AM_ent1_min, AM_ent1_max, 
-                AM_ent2_min, AM_ent2_max)
+                AM_ent2_min, AM_ent2_max, temperature)
             neg_logit = self._ht2.get_conditional_probability(AM_nent1_min, AM_nent1_max, 
-                AM_nent2_min, AM_nent2_max)
+                AM_nent2_min, AM_nent2_max, temperature_n)
             logits = tf.concat([pos_logit, neg_logit], 0)
             label = tf.concat([tf.ones_like(pos_logit), tf.zeros_like(neg_logit)], 0)
 

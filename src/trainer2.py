@@ -31,7 +31,7 @@ class Trainer(object):
         self.sess = None
 
     def build(self, multiG, method='transe', bridge='CG-one',  dim1=300, dim2=50, batch_sizeK1=1024, batch_sizeK2=1024, 
-        batch_sizeA=32, a1=5., a2=0.5, m1=0.5, vol_temp=1.0, int_temp=0.1, int_method='gumbel', 
+        batch_sizeA=32, a1=5., a2=0.5, m1=0.5, vol_temp=1.0, int_temp=0.1, int_method='gumbel', box_method='BoxMethods',
         transformation= 'relation_specific', save_path = 'this-model.ckpt', multiG_save_path = 'this-multiG.bin', 
         log_save_path = 'tf_log', L1=False, eval_file = None, eval_freq=2):
         self.multiG = multiG
@@ -61,6 +61,7 @@ class Trainer(object):
                                  batch_sizeA=self.batch_sizeA,
                                  vol_temp=vol_temp,
                                  int_temp=int_temp,
+                                 box_method=box_method,
                                  transformation=transformation,
                                  int_method=int_method,
                                  L1=self.L1)
@@ -206,7 +207,8 @@ class Trainer(object):
             # Optimize loss A
 
             e1_index, e2_index, e1_nindex, e2_nindex  = next(this_gen_AM_batch)
-            _, loss_AM = sess.run([self.tf_parts._train_op_AM, self.tf_parts._AM_loss],
+            _, loss_AM, logits_AM = sess.run([self.tf_parts._train_op_AM, self.tf_parts._AM_loss, 
+                    self.tf_parts.pos_logit_AM],
                     feed_dict={self.tf_parts._AM_index1: e1_index, 
                                self.tf_parts._AM_index2: e2_index,
                                self.tf_parts._AM_nindex1: e1_nindex,
@@ -289,8 +291,13 @@ class Trainer(object):
             logits_AM = self.sess.run([self.tf_parts.pos_logit_AM],
                     feed_dict={self.tf_parts._AM_index1: [ele[0]] * self.multiG.KG2.num_ents() , 
                                self.tf_parts._AM_index2: np.arange(self.multiG.KG2.num_ents())})
+            # logits_AM, temperature = self.sess.run([self.tf_parts.pos_logit_AM, self.tf_parts.temperature],
+            #         feed_dict={self.tf_parts._AM_index1: [ele[0]] * self.multiG.KG2.num_ents() , 
+            #                    self.tf_parts._AM_index2: np.arange(self.multiG.KG2.num_ents())})
             self.tf_parts.mode = 'train'
-            rank = self.get_rank(logits_AM[0], ele[1])
+            if len(logits_AM) == 1:
+                logits_AM = logits_AM[0]
+            rank = self.get_rank(logits_AM, ele[1])
             ranks.append(rank) # Extra dim of len 1
             mrr.append(1 / rank)
         return np.mean(ranks), np.mean(mrr)

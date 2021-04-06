@@ -13,24 +13,21 @@ class BoxMethods(object):
                  vocab_size,
                  temperature = 1.0,
                  int_temp = 0.1,
-                 delta_space = 'log',
                  int_method = 'gumbel'):
         self.embed_dim = embed_dim
         self.vocab_size = vocab_size
         self.vol_temp = temperature
         self.int_temp = int_temp
-        self.delta_space = delta_space
         self.int_method = int_method
         self.min_embed, self.delta_embed = self.init_word_embedding()
 
     @property
     def init_embedding_scale(self):
         """For different measures, min and delta have different init value. """
-        if self.delta_space:
-            min_lower_scale, min_higher_scale = 1e-3, 0.1#1e-4, 0.9
-            delta_lower_scale, delta_higher_scale = -0.1, 1.5#-1.0, -0.1
-            # min_lower_scale, min_higher_scale = 1e-4, 0.5
-            # delta_lower_scale, delta_higher_scale = -0.1, -0.0
+        min_lower_scale, min_higher_scale = 1e-3, 0.1#1e-4, 0.9
+        delta_lower_scale, delta_higher_scale = -0.1, 1.5#-1.0, -0.1
+        # min_lower_scale, min_higher_scale = 1e-4, 0.5
+        # delta_lower_scale, delta_higher_scale = -0.1, -0.0
         return min_lower_scale, min_higher_scale, delta_lower_scale, delta_higher_scale
 
     def init_word_embedding(self):
@@ -44,6 +41,9 @@ class BoxMethods(object):
                               seed=my_seed), trainable=True, name='delta_embed')
 
         return min_embed, delta_embed
+
+    def get_temperature(self, t1_idx):
+        return tf.reshape(tf.constant(self.vol_temp), (-1, 1))
 
     def get_transformed_embedding(self, t1_idx, rel_vector):
         """Box embedding min + min_rel and log_delta + log_relation_delta is returned"""
@@ -59,16 +59,18 @@ class BoxMethods(object):
         t1_delta_embed = tf.nn.embedding_lookup(self.delta_embed, t1_idx)
         return t1_min_embed , tf.exp(t1_delta_embed)
 
-    def get_conditional_probability(self, t1_min_embed, t1_max_embed, t2_min_embed, t2_max_embed):
+    def get_conditional_probability(self,
+            t1_min_embed, t1_max_embed, t2_min_embed, t2_max_embed, vol_temp):
+        
         ## p(t2/t1) / p(mammal|man) = 1
-
         meet_min, meet_max = self.calc_intersection(
         t1_min_embed, t1_max_embed, t2_min_embed, t2_max_embed)
         """get conditional probabilities"""
+
         overlap_volume = tf.reduce_prod(tf.nn.softplus((meet_max - meet_min)
-                                                       /self.vol_temp)*self.vol_temp, axis=-1)
+                                                       /vol_temp) * vol_temp, axis=-1)
         rhs_volume = tf.reduce_prod(tf.nn.softplus((t1_max_embed - t1_min_embed)
-                                                   /self.vol_temp)*self.vol_temp, axis=-1)
+                                                   /vol_temp) * vol_temp, axis=-1)
         conditional_logits = tf.log(overlap_volume + 1e-19) - tf.log(rhs_volume + 1e-19)
         return conditional_logits
 
@@ -109,3 +111,58 @@ class BoxMethods(object):
     def get_loss(self, logits, target):
         return - tf.reduce_mean(tf.multiply(logits, target) + tf.multiply(
             tf.log(1 - tf.exp(logits) + 1e-19), 1 - target))
+
+class BoxMethodLearntTemp(BoxMethods):
+    def __init__(self,
+                 embed_dim,
+                 vocab_size,
+                 temperature = 1.0,
+                 int_temp = 0.1,
+                 int_method = 'gumbel',
+                 _min=0.01,
+                 _max=10):
+        super(BoxMethodLearntTemp, self).__init__(embed_dim=embed_dim,
+                                      vocab_size=vocab_size,
+                                      temperature=temperature,
+                                      int_temp=int_temp,
+                                      int_method=int_method
+                                      )
+        self.vol_temp = self.init_temperatures(_min, _max)
+    
+    def init_temperatures(self, _min=0.01, _max=100):
+        temp_base = tf.Variable(
+            tf.random_uniform([self.vocab_size, self.embed_dim], -1, 1, seed=my_seed),
+            trainable=True, name='word_embed')
+
+        temp = _min + tf.sigmoid(temp_base) * (_max - _min)
+        return temp
+    
+    def get_temperature(self, t1_idx):
+        return tf.nn.embedding_lookup(self.vol_temp, t1_idx)
+
+class BoxMethodLearntTempScalar(BoxMethodLearntTemp):
+    def __init__(self,
+                 embed_dim,
+                 vocab_size,
+                 temperature = 1.0,
+                 int_temp = 0.1,
+                 int_method = 'gumbel',
+                 _min=0.01,
+                 _max=10):
+        super(BoxMethodLearntTempScalar, self).__init__(embed_dim=embed_dim,
+                                      vocab_size=vocab_size,
+                                      temperature=temperature,
+                                      int_temp=int_temp,
+                                      int_method=int_method
+                                      )
+        self.vol_temp = self.init_temperatures(_min, _max)
+    
+    def init_temperatures(self, _min=0.01, _max=100):
+        temp_basic = tf.Variable(
+            tf.random_uniform([self.vocab_size], -5, 5, seed=my_seed),
+            trainable=True, name='temp_basic')
+        temp = _min + tf.sigmoid(temp_basic) * (_max - _min)
+        return temp
+    
+    def get_temperature(self, t1_idx):
+        return tf.reshape(tf.nn.embedding_lookup(self.vol_temp, t1_idx), (-1, 1))
