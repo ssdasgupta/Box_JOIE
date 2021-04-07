@@ -297,6 +297,9 @@ class Trainer(object):
             self.tf_parts.mode = 'train'
             if len(logits_AM) == 1:
                 logits_AM = logits_AM[0]
+            if np.isnan(logits_AM).any():
+                raise RuntimeError
+
             rank = self.get_rank(logits_AM, ele[1])
             ranks.append(rank) # Extra dim of len 1
             mrr.append(1 / rank)
