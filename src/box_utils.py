@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 import tensorflow as tf
 
-
+euler_gamma = 0.57721566490153286060
 my_seed = 20180112
 tf.set_random_seed(my_seed)
 
@@ -66,12 +66,20 @@ class BoxMethods(object):
         meet_min, meet_max = self.calc_intersection(
         t1_min_embed, t1_max_embed, t2_min_embed, t2_max_embed)
         """get conditional probabilities"""
-
-        self.overlap_volume = tf.reduce_sum(tf.log(tf.nn.softplus((meet_max - meet_min)
-                                                       /vol_temp) * vol_temp + 1e-19), axis=-1)
-        self.rhs_volume = tf.reduce_sum(tf.log(tf.nn.softplus((t1_max_embed - t1_min_embed)
-                                                   /vol_temp) * vol_temp + 1e-19), axis=-1)
         
+        if self.int_method == 'hard':
+
+            self.overlap_volume = tf.reduce_sum(tf.log(tf.nn.softplus((meet_max - meet_min)
+                                                       /vol_temp) * vol_temp + 1e-19), axis=-1)
+            self.rhs_volume = tf.reduce_sum(tf.log(tf.nn.softplus((t1_max_embed - t1_min_embed)
+                                                   /vol_temp) * vol_temp + 1e-19), axis=-1)
+        elif self.int_method == 'gumbel':
+            self.overlap_volume = tf.reduce_sum(tf.log(tf.nn.softplus((meet_max - meet_min - 2*euler_gamma*self.int_temp)
+                                                       /vol_temp) * vol_temp + 1e-19), axis=-1)
+
+            self.rhs_volume = tf.reduce_sum(tf.log(tf.nn.softplus((t1_max_embed - t1_min_embed - 2*euler_gamma*self.int_temp)
+                                                   /vol_temp) * vol_temp + 1e-19), axis=-1)
+
         conditional_logits = self.overlap_volume - self.rhs_volume
         return conditional_logits
 

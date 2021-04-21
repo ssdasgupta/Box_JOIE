@@ -257,13 +257,20 @@ class Trainer(object):
         self.tf_parts._m1 = m1  
         t0 = time.time()
         best_mrr = 0.0
+        best_hits_at_1 = 0.
+        best_hits_at_3 = 0.
         for epoch in range(epochs):
             if epoch % self.eval_freq == 0:
-                ranks, mrr = self.eval()
-                best_mrr = max(mrr, best_mrr)
-                metric = {"eval_rank": ranks, "eval_mrr": mrr, "best_mrr": best_mrr}
+                ranks, mrr, hits_at_1, hits_at_3 = self.eval()
+                if mrr > best_mrr:
+                    best_mrr = max(mrr, best_mrr)
+                    hits_at_1 = max(hits_at_1, best_hits_at_1)
+                    hits_at_3 = max(hits_at_3, best_hits_at_3)
+                metric = {"eval_rank": ranks, "eval_mrr": mrr, "best_mrr": best_mrr,
+                           "best_hits_at_3": best_hits_at_3, "best_hits_at_1": best_hits_at_1}
                 wandb.log(metric, commit=False)
                 print(f"Eval after {epoch} epochs: Rank {ranks}, mrr {mrr}")
+                print(f"hits_at_3: {hits_at_3}, hits_at_1: {hits_at_1}")
             
             if half_loss_per_epoch > 0 and (epoch + 1) % half_loss_per_epoch == 0:
                 lr /= 2.
@@ -286,6 +293,8 @@ class Trainer(object):
     def eval(self):
         ranks = []
         mrr = []
+        hits_at_1 = 0.
+        hits_at_3 = 0.
         for ele in self.test_align:
             self.tf_parts.mode = 'eval'
             logits_AM = self.sess.run([self.tf_parts.pos_logit_AM],
@@ -294,6 +303,7 @@ class Trainer(object):
             # logits_AM, temperature = self.sess.run([self.tf_parts.pos_logit_AM, self.tf_parts.temperature],
             #         feed_dict={self.tf_parts._AM_index1: [ele[0]] * self.multiG.KG2.num_ents() , 
             #                    self.tf_parts._AM_index2: np.arange(self.multiG.KG2.num_ents())})
+
             self.tf_parts.mode = 'train'
             if len(logits_AM) == 1:
                 logits_AM = logits_AM[0]
@@ -303,11 +313,21 @@ class Trainer(object):
             rank = self.get_rank(logits_AM, ele[1])
             ranks.append(rank) # Extra dim of len 1
             mrr.append(1 / rank)
-        return np.mean(ranks), np.mean(mrr)
+            if rank == 1:
+                hits_at_1+=1
+            if rank < 4:
+                 hits_at_3+=1
+        return np.mean(ranks), np.mean(mrr), hits_at_1/len(ranks), hits_at_3/len(ranks)
     
     def get_rank(self, score, target_idx):
         target_value = score[target_idx]
         before_me = np.where(score > target_value)
+        # if len(before_me[0]) <= 4 and len(before_me[0]) >= 2:
+        #     print("---------------------")
+        #     for ele in before_me[0]:
+        #         print(self.multiG.KG2.ent_index2str(ele))
+        #     print("**********************")
+        #     print(self.multiG.KG2.ent_index2str(target_idx))
         equal_me = np.where(np.where(score  == target_value)[0] != target_idx)
         return len(before_me[0]) + len(equal_me[0]) /2 + 1
 
@@ -318,6 +338,8 @@ class Trainer(object):
             align = []
             lr_map = {}
             rl_map = {}
+            e1_set = set()
+            e2_set = set()
             dedup_set = set([])
             for line in open(filename):
                 if dedup and line in dedup_set:
@@ -330,6 +352,8 @@ class Trainer(object):
                 num_lines += 1
                 e1 = self.multiG.KG1.ent_str2index(line[0])
                 e2 = self.multiG.KG2.ent_str2index(line[2])
+                e1_set.add(e1)
+                e2_set.add(e2)
                 if e1 == None or e2 == None:
                     continue
                 align.append([e1, e2])
@@ -341,6 +365,7 @@ class Trainer(object):
                     rl_map[e2] = set([e1])
                 else:
                     rl_map[e2].add(e1)
+
             self.test_align = np.array(align, dtype=np.int32)
             self.lr_map =lr_map
             self.rl_map = rl_map
