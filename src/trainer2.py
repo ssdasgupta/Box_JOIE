@@ -30,10 +30,11 @@ class Trainer(object):
         self.L1=False
         self.sess = None
 
-    def build(self, multiG, method='transe', bridge='CG-one',  dim1=300, dim2=50, batch_sizeK1=1024, batch_sizeK2=1024, 
-        batch_sizeA=32, a1=5., a2=0.5, m1=0.5, vol_temp=1.0, int_temp=0.1, int_method='gumbel', box_method='BoxMethods',
-        transformation= 'relation_specific', save_path = 'this-model.ckpt', multiG_save_path = 'this-multiG.bin', 
-        log_save_path = 'tf_log', L1=False, eval_file = None, eval_freq=2):
+    def build(self, multiG, method='transe', bridge='CG-one',  dim1=300, dim2=50, batch_sizeK1=1024, batch_sizeK2=1024,
+        batch_sizeA=32, a1=5., a2=0.5, m1=0.5, vol_temp=1.0, int_temp=0.1, int_method='gumbel', sampling_type='uniform',
+        box_method='BoxMethods', transformation= 'relation_specific', save_path = 'this-model.ckpt',
+        multiG_save_path = 'this-multiG.bin', log_save_path = 'tf_log', L1=False, eval_file = None, eval_freq=2):
+        
         self.multiG = multiG
         self.method = method
         self.bridge = bridge
@@ -43,6 +44,7 @@ class Trainer(object):
         self.batch_sizeK1 = self.multiG.batch_sizeK1 = batch_sizeK1
         self.batch_sizeK2 = self.multiG.batch_sizeK2 = batch_sizeK2
         self.batch_sizeA = self.multiG.batch_sizeA = batch_sizeA
+        self.sampling_type = sampling_type
         self.multiG_save_path = multiG_save_path
         self.log_save_path = log_save_path
         self.save_path = save_path
@@ -89,7 +91,11 @@ class Trainer(object):
                 if batch.shape[0] < batchsize:
                     batch = np.concatenate((batch, self.multiG.triples[:batchsize - batch.shape[0]]), axis=0)
                     assert batch.shape[0] == batchsize
-                neg_batch = KG.corrupt_batch(batch)
+                if KG_index == 2:
+                    neg_batch = KG.corrupt_batch(batch, sampling_type=self.sampling_type) # Sampling type: 'frequency', 'Uniform'
+                else:
+                    neg_batch = KG.corrupt_batch(batch, sampling_type='uniform')
+
                 h_batch, r_batch, t_batch = batch[:, 0], batch[:, 1], batch[:, 2]
                 neg_h_batch, neg_t_batch = neg_batch[:, 0], neg_batch[:, 2]
                 yield h_batch.astype(np.int64), r_batch.astype(np.int64), t_batch.astype(np.int64), neg_h_batch.astype(np.int64), neg_t_batch.astype(np.int64)
@@ -108,7 +114,8 @@ class Trainer(object):
                 if batch.shape[0] < self.batch_sizeA:
                     batch = np.concatenate((batch, align[:self.batch_sizeA - batch.shape[0]]), axis=0)
                     assert batch.shape[0] == self.batch_sizeA
-                n_batch = multiG.corrupt_align_batch(batch,tar=1) # only neg on class
+                n_batch = multiG.corrupt_align_batch(batch,tar=1, sampling_type=self.sampling_type) # only neg on class # Type: 'frequency', 'Uniform'
+                breakpoint()
                 e1_batch, e2_batch, e1_nbatch, e2_nbatch = batch[:, 0], batch[:, 1], n_batch[:, 0], n_batch[:, 1]
                 yield e1_batch.astype(np.int64), e2_batch.astype(np.int64), e1_nbatch.astype(np.int64), e2_nbatch.astype(np.int64)
             if not forever:

@@ -47,6 +47,8 @@ parser.add_argument('--batch_K2', type=int, default=64, help='Concept dimension'
 parser.add_argument('--batch_A', type=int, default=128, help='Entity dimension') #batch AM
 parser.add_argument('--lr', type=float, default= 0.0005, help ='learning rate')
 parser.add_argument('--transformation', type=str, default='relation-specific', help='transformation of the enitites')
+parser.add_argument('--sampling_type', type=str, default='frequency', choices=['frequency', 'uniform'],
+	                help='Negative sampling choices')
 
 parser.add_argument('--a1', type=float, default=2.5, metavar='A',help='ins learning ratio')
 parser.add_argument('--a2', type=float, default=1.0, metavar='a',help='onto learning ratio')
@@ -136,7 +138,7 @@ this_data.load_align(filename = alignf, lan1 = 'ins', lan2 = 'onto', splitter = 
 m_train = Trainer()
 #udpate dim
 m_train.build(this_data, method=args.method, bridge=args.bridge, dim1=args.dim1, dim2=args.dim2, 
-	batch_sizeK1=args.batch_K1, batch_sizeK2=args.batch_K2, batch_sizeA=args.batch_A, 
+	batch_sizeK1=args.batch_K1, batch_sizeK2=args.batch_K2, batch_sizeA=args.batch_A, sampling_type=args.sampling_type, 
 	a1=args.a1, a2=args.a2, m1=args.m1, vol_temp=args.vol_temp , int_temp=args.int_temp, int_method=args.int_method,
 	box_method=args.box_method, transformation=args.transformation, save_path = model_path, multiG_save_path = data_path,
 	log_save_path = tf_log_path, L1=False, eval_file=args.eval_file, eval_freq=args.eval_freq)

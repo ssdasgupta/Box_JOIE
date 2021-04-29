@@ -76,6 +76,11 @@ class multiG(object):
                     self.align_desc.append((e1, e2))
                     self.n_align_desc += 1
         self.align = np.array(self.align)
+        
+        for h, t in self.align:
+            self.KG1.freq_ents[h] += 1
+            self.KG2.freq_ents[t] += 1
+        
         if desc:
             self.align_desc = np.array(self.align_desc)
         self.aligned_KG1_index = np.array([e for e in self.aligned_KG1])
@@ -176,25 +181,33 @@ class multiG(object):
             pos = np.random.randint(2)
         return self.corrupt_desc_pos(align, pos)
     
-    def corrupt_align_pos(self, align, pos):
+    def corrupt_align_pos(self, align, pos, sampling_type='frequency'):
         assert (pos in [0, 1])
         hit = True
         res = None
         while hit:
             res = np.copy(align)
             if pos == 0:
-                samp = np.random.randint(self.KG1.num_ents())
+                if sampling_type == 'uniform':
+                    samp = np.random.randint(self.KG1.num_ents())
+                elif sampling_type == 'frequency':
+                    samp = np.random.choice(self.KG1.num_ents(), p=self.KG1.prob_ents)
+                
                 if samp not in self.ent21[align[1]]:
                     hit = False
                     res = np.array([samp, align[1]])
             else:
-                samp = np.random.randint(self.KG2.num_ents())
+                if sampling_type == 'uniform':
+                    samp = np.random.randint(self.KG2.num_ents())
+                elif sampling_type == 'frequency':
+                    samp = np.random.choice(self.KG2.num_ents(), p=self.KG2.prob_ents)
+
                 if samp not in self.ent12[align[0]]:
                     hit = False
                     res = np.array([align[0], samp])
         return res
 
-    def corrupt_align(self, align, tar=None):
+    def corrupt_align(self, align, tar=None, sampling_type='frequency'):
         pos = tar
         if pos == None:
             pos = np.random.randint(2)
@@ -205,9 +218,9 @@ class multiG(object):
         np.random.seed(int(time.time()))
         return np.array([self.corrupt_desc(a, tar) for a in a_batch])
 
-    def corrupt_align_batch(self, a_batch, tar = None):
+    def corrupt_align_batch(self, a_batch, tar = None, sampling_type='frequency'):
         np.random.seed(int(time.time()))
-        return np.array([self.corrupt_align(a, tar) for a in a_batch])
+        return np.array([self.corrupt_align(a, tar, sampling_type) for a in a_batch])
     
     def sample_false_pair(self, batch_sizeA):
         a = np.random.choice(self.unaligned_KG1_index, batch_sizeA)

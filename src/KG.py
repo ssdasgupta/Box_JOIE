@@ -59,31 +59,40 @@ class KG(object):
                 self.ents[last_c] = line[0]
                 self.index_ents[line[0]] = last_c
                 self.ent_tokens[last_c] = set(line[0].replace('(','').replace(')','').split(' '))
+
             if self.index_ents.get(line[2]) == None:
                 last_c += 1
                 self.ents[last_c] = line[2]
                 self.index_ents[line[2]] = last_c
                 self.ent_tokens[last_c] = set(line[2].replace('(','').replace(')','').split(' '))
+
             if self.index_rels.get(line[1]) == None:
                 last_r += 1
                 self.rels[last_r] = line[1]
                 self.index_rels[line[1]] = last_r
+
             h = self.index_ents[line[0]]
             r = self.index_rels[line[1]]
             t = self.index_ents[line[2]]
             triples.append([h, r, t])
             self.triples_record.add((h, r, t))
+        
         self.triples = np.array(triples)
         self.n_ents = last_c + 1
         self.n_rels = last_r + 1
         # calculate tph and hpt
         tph_array = np.zeros((len(self.rels), len(self.ents)))
         hpt_array = np.zeros((len(self.rels), len(self.ents)))
+        self.freq_ents = np.zeros(len(self.ents))
         for h,r,t in self.triples:
             tph_array[r][h] += 1.
             hpt_array[r][t] += 1.
+            self.freq_ents[h] += 1
+            self.freq_ents[t] += 1
         self.tph = np.mean(tph_array, axis = 1)
         self.hpt = np.mean(hpt_array, axis = 1)
+        self.prob_ents = self.freq_ents/np.sum(self.freq_ents)
+
         print("Loaded triples from", filename, ". #triples, #ents, #rels:", len(self.triples), self.n_ents, self.n_rels)
 
     def load_word2vec(self, filepath, splitter=' '):
@@ -311,14 +320,22 @@ class KG(object):
     def rel(self):
         return np.array(range(self.num_rels()))
 
-    def corrupt_pos(self, t, pos):
+    def corrupt_pos(self, t, pos, sampling_type='uniform'):
         hit = True
         res = None
         while hit:
             res = np.copy(t)
-            samp = np.random.randint(self.num_ents())
-            while samp == t[pos]:
+            if sampling_type == 'uniform':
                 samp = np.random.randint(self.num_ents())
+            elif sampling_type == 'frequency':
+                samp = np.random.choice(self.num_ents(), p=self.prob_ents)
+
+            while samp == t[pos]:
+                if sampling_type == 'uniform':
+                    samp = np.random.randint(self.num_ents())
+                elif sampling_type == 'frequency':
+                    samp = np.random.choice(self.num_ents(), p=self.prob_ents)
+
             res[pos] = samp
             if tuple(res) not in self.triples_record:
                 hit = False
@@ -326,24 +343,24 @@ class KG(object):
             
         
     #bernoulli negative sampling
-    def corrupt(self, t, tar = None):
+    def corrupt(self, t, tar = None, sampling_type='uniform'):
         if tar == 't':
-            return self.corrupt_pos(t, 2)
+            return self.corrupt_pos(t, 2, sampling_type)
         elif tar == 'h':
-            return self.corrupt_pos(t, 0)
+            return self.corrupt_pos(t, 0, sampling_type)
         else:
             this_tph = self.tph[t[1]]
             this_hpt = self.hpt[t[1]]
             assert(this_tph > 0 and this_hpt > 0)
             np.random.seed(int(time.time()))
             if np.random.uniform(high=this_tph + this_hpt, low=0.) < this_hpt:
-                return self.corrupt_pos(t, 2)
+                return self.corrupt_pos(t, 2, sampling_type=sampling_type)
             else:
-                return self.corrupt_pos(t, 0)
+                return self.corrupt_pos(t, 0, sampling_type=sampling_type)
     
     #bernoulli negative sampling on a batch
-    def corrupt_batch(self, t_batch, tar = None):
-        return np.array([self.corrupt(t, tar) for t in t_batch])
+    def corrupt_batch(self, t_batch, tar = None, sampling_type='uniform'):
+        return np.array([self.corrupt(t, tar, sampling_type) for t in t_batch])
 
     def load_stop_words(self, filepath):
         stopwords = []
