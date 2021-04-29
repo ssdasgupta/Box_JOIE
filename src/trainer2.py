@@ -115,7 +115,7 @@ class Trainer(object):
                     batch = np.concatenate((batch, align[:self.batch_sizeA - batch.shape[0]]), axis=0)
                     assert batch.shape[0] == self.batch_sizeA
                 n_batch = multiG.corrupt_align_batch(batch,tar=1, sampling_type=self.sampling_type) # only neg on class # Type: 'frequency', 'Uniform'
-                breakpoint()
+
                 e1_batch, e2_batch, e1_nbatch, e2_nbatch = batch[:, 0], batch[:, 1], n_batch[:, 0], n_batch[:, 1]
                 yield e1_batch.astype(np.int64), e2_batch.astype(np.int64), e1_nbatch.astype(np.int64), e2_nbatch.astype(np.int64)
             if not forever:
