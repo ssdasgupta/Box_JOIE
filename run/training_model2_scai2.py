@@ -144,5 +144,5 @@ m_train.build(this_data, method=args.method, bridge=args.bridge, dim1=args.dim1,
 	log_save_path = tf_log_path, L1=False, eval_file=args.eval_file, eval_freq=args.eval_freq)
 
 
-m_train.train(epochs=100, save_every_epoch=1, lr=args.lr, a1=args.a1, a2=args.a2, m1=args.m1, AM_fold=args.fold)
+m_train.train(epochs=200, save_every_epoch=1, lr=args.lr, a1=args.a1, a2=args.a2, m1=args.m1, AM_fold=args.fold)
 

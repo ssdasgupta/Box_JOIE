@@ -112,24 +112,38 @@ class TFParts(object):
                 dtype=tf.float32)
             
             # KG2 --- Again, What is KG1? Is this ontology or instances?
+
+            # Box method define all the box related classes
             _BoxMethod = methods[self.box_method]
 
-            self._ht2 = ht2 = _BoxMethod(self._dim2, self._num_entsB, 
-                                   temperature=self.vol_temp, int_temp=self.int_temp,
-                                   int_method=self.int_method)
+            
+            self._ht2 = ht2 = _BoxMethod(
+                                   self._dim2,
+                                   self._num_entsB,
+                                   temperature=self.vol_temp,
+                                   int_temp=self.int_temp,
+                                   int_method=self.int_method
+                                )
 
             # self._ht2 = ht2 = tf.get_variable(
             #     name='ht2',  # for t AND h
             #     shape=[self._num_entsB, self._dim2],
             #     dtype=tf.float32)
+
+            # Here relations means relation specific transforms for boxes
+            # Dimension is doubled because one for min and one for delta
+            # Also the transformation is different for head and tail.
+
+            # Here, 
+
             self._r2_head = r2_head = tf.get_variable(
                 name='r2_head',
-                shape=[self._num_relsB, self._dim2*2],
+                shape=[self._num_relsB, self._dim2 * 2], 
                 dtype=tf.float32)
 
             self._r2_tail = r2_tail = tf.get_variable(
                 name='r2_tail',
-                shape=[self._num_relsB, self._dim2*2],
+                shape=[self._num_relsB, self._dim2 * 2],
                 dtype=tf.float32)
 
             self._ht1_norm = tf.nn.l2_normalize(ht1, 1)
@@ -208,6 +222,7 @@ class TFParts(object):
                 self._A_loss = A_loss = tf.reduce_sum(tf.maximum(tf.add(tf.subtract(A_neg_matrix, A_loss_matrix), self._m1), 0.)) / self._batch_sizeK1
 
             else:
+                ## Should we do something else? atleast the loss function could be bce to make them in same scale
                 raise ValueError('Embedding method not valid!')
 
 
@@ -247,13 +262,16 @@ class TFParts(object):
                 hn_min_embed, hn_max_embed = self._ht2.get_embedding(B_hn_index)
                 tn_min_embed, tn_max_embed = self._ht2.get_embedding(B_tn_index)
 
-            temperature = (self._ht2.get_temperature(B_h_index) + self._ht2.get_temperature(B_t_index)) / 2.
-            temperature_n = (self._ht2.get_temperature(B_hn_index) + self._ht2.get_temperature(B_tn_index)) / 2.
+            vol_temp = (self._ht2.get_vol_temperature(B_h_index) + self._ht2.get_vol_temperature(B_t_index)) / 2.
+            vol_temp_n = (self._ht2.get_vol_temperature(B_hn_index) + self._ht2.get_vol_temperature(B_tn_index)) / 2.
+
+            int_temp = (self._ht2.get_int_temperature(B_h_index) + self._ht2.get_int_temperature(B_t_index)) / 2.
+            int_temp_n = (self._ht2.get_int_temperature(B_hn_index) + self._ht2.get_int_temperature(B_tn_index)) / 2.
             
             self.pos_logit_B = pos_logit = self._ht2.get_conditional_probability(h_min_embed, h_max_embed, 
-                t_min_embed, t_max_embed, temperature)
+                t_min_embed, t_max_embed, vol_temp, int_temp)
             neg_logit = self._ht2.get_conditional_probability(hn_min_embed, hn_max_embed, 
-                tn_min_embed, tn_max_embed, temperature_n)
+                tn_min_embed, tn_max_embed, vol_temp_n, int_temp_n)
             logits = tf.concat([pos_logit, neg_logit], 0)
             label = tf.concat([tf.ones_like(pos_logit),
                 tf.zeros_like(neg_logit)], 0)
@@ -289,22 +307,25 @@ class TFParts(object):
 
             AM_ent2_min, AM_ent2_max = self._ht2.get_embedding(AM_index2)
             AM_nent2_min, AM_nent2_max = self._ht2.get_embedding(AM_nindex2)
-            self.temperature = temperature = self._ht2.get_temperature(AM_index2)
-            temperature_n = self._ht2.get_temperature(AM_nindex2)
+
+            self.vol_temp = vol_temp = self._ht2.get_vol_temperature(AM_index2)
+            vol_temp_n = self._ht2.get_vol_temperature(AM_nindex2)
+
+            self.int_temp = int_temp = self._ht2.get_int_temperature(AM_index2)
+            int_temp_n = self._ht2.get_int_temperature(AM_nindex2)
 
             self.pos_logit_AM = pos_logit = self._ht2.get_conditional_probability(AM_ent1_min, AM_ent1_max, 
-                AM_ent2_min, AM_ent2_max, temperature)
+                AM_ent2_min, AM_ent2_max, vol_temp, int_temp)
             neg_logit = self._ht2.get_conditional_probability(AM_nent1_min, AM_nent1_max, 
-                AM_nent2_min, AM_nent2_max, temperature_n)
+                AM_nent2_min, AM_nent2_max, vol_temp_n, int_temp_n)
+
             logits = tf.concat([pos_logit, neg_logit], 0)
             label = tf.concat([tf.ones_like(pos_logit), tf.zeros_like(neg_logit)], 0)
-
             self._AM_loss = AM_loss = self._ht2.get_loss(logits, label)
 
-            
             # Optimizer
             self._lr = lr = tf.placeholder(tf.float32)
-            self._opt = opt = tf.train.AdamOptimizer(lr) #AdagradOptimizer(lr)#GradientDescentOptimizer(lr)
+            self._opt = opt = tf.train.AdamOptimizer(lr) #Other options #AdagradOptimizer(lr) #GradientDescentOptimizer(lr)
             self._train_op_A = train_op_A = opt.minimize(A_loss)
             self._train_op_B = train_op_B = opt.minimize(B_loss)
             self._train_op_AM = train_op_AM = opt.minimize(AM_loss)

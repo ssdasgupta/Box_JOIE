@@ -288,10 +288,10 @@ class Trainer(object):
                 print("Training collapsed.")
                 return
             
-            if (epoch + 1) % save_every_epoch == 0:
-                this_save_path = self.tf_parts._saver.save(self.sess, self.save_path)
-                self.multiG.save(self.multiG_save_path)
-                print("MTransE saved in file: %s. Multi-graph saved in file: %s" % (this_save_path, self.multiG_save_path))
+            # if (epoch + 1) % save_every_epoch == 0:
+            #     # this_save_path = self.tf_parts._saver.save(self.sess, self.save_path)
+            #     # self.multiG.save(self.multiG_save_path)
+            #     print("MTransE saved in file: %s. Multi-graph saved in file: %s" % (this_save_path, self.multiG_save_path))
         this_save_path = self.tf_parts._saver.save(self.sess, self.save_path)
         self.multiG.save(self.multiG_save_path)
         print("MTransE saved in file: %s. Multi-graph saved in file: %s" % (this_save_path, self.multiG_save_path))
