@@ -33,7 +33,7 @@ class Trainer(object):
     def build(self, multiG, method='transe', bridge='CG-one',  dim1=300, dim2=50, batch_sizeK1=1024, batch_sizeK2=1024,
         batch_sizeA=32, a1=5., a2=0.5, m1=0.5, vol_temp=1.0, int_temp=0.1, int_method='gumbel', sampling_type='uniform',
         box_method='BoxMethods', transformation= 'relation_specific', save_path = 'this-model.ckpt',
-        multiG_save_path = 'this-multiG.bin', log_save_path = 'tf_log', L1=False, eval_file = None, eval_freq=2):
+        multiG_save_path = 'this-multiG.bin', log_save_path = 'tf_log', L1=False, eval_file = None, eval_freq=2, debug=False):
         
         self.multiG = multiG
         self.method = method
@@ -50,6 +50,7 @@ class Trainer(object):
         self.save_path = save_path
         self.L1 = self.multiG.L1 = L1
         self.eval_freq = eval_freq
+        self.debug = debug
         self.tf_parts = model.TFParts(num_rels1=self.multiG.KG1.num_rels(),
                                  num_ents1=self.multiG.KG1.num_ents(),
                                  num_rels2=self.multiG.KG2.num_rels(),
@@ -263,17 +264,17 @@ class Trainer(object):
         #sess.run(tf.initialize_all_variables())
         self.tf_parts._m1 = m1  
         t0 = time.time()
-        best_mrr = 0.0
+        self.best_mrr = 0.0
         best_hits_at_1 = 0.
         best_hits_at_3 = 0.
         for epoch in range(epochs):
             if epoch % self.eval_freq == 0:
                 ranks, mrr, hits_at_1, hits_at_3 = self.eval()
-                if mrr > best_mrr:
-                    best_mrr = max(mrr, best_mrr)
+                if mrr > self.best_mrr:
+                    self.best_mrr = max(mrr, self.best_mrr)
                     hits_at_1 = max(hits_at_1, best_hits_at_1)
                     hits_at_3 = max(hits_at_3, best_hits_at_3)
-                metric = {"eval_rank": ranks, "eval_mrr": mrr, "best_mrr": best_mrr,
+                metric = {"eval_rank": ranks, "eval_mrr": mrr, "best_mrr": self.best_mrr,
                            "best_hits_at_3": best_hits_at_3, "best_hits_at_1": best_hits_at_1}
                 wandb.log(metric, commit=False)
                 print(f"Eval after {epoch} epochs: Rank {ranks}, mrr {mrr}")
@@ -329,12 +330,16 @@ class Trainer(object):
     def get_rank(self, score, target_idx):
         target_value = score[target_idx]
         before_me = np.where(score > target_value)
-        # if len(before_me[0]) <= 4 and len(before_me[0]) >= 2:
-        #     print("---------------------")
-        #     for ele in before_me[0]:
-        #         print(self.multiG.KG2.ent_index2str(ele))
-        #     print("**********************")
-        #     print(self.multiG.KG2.ent_index2str(target_idx))
+        if self.debug:
+            if self.best_mrr > 0.75 and len(before_me[0]) <= 4 and len(before_me[0]) >= 2:
+                print("---------------------")
+                string = ''
+                for ele in before_me[0]:
+                    string+=self.multiG.KG2.ent_index2str(ele)
+                    string+= '|'
+                print(string)
+                print("**********************")
+                print(f"target: {self.multiG.KG2.ent_index2str(target_idx)}")
         equal_me = np.where(np.where(score  == target_value)[0] != target_idx)
         return len(before_me[0]) + len(equal_me[0]) /2 + 1
 
