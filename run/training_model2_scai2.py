@@ -16,6 +16,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../src'))
 import numpy as np
 import tensorflow as tf
 import argparse
+import random
 
 from KG import KG
 from multiG import multiG   # we don't import individual things in a model. This is to make auto reloading in Notebook happy
@@ -28,6 +29,7 @@ def make_hparam_string(method, bridge, int_method, dim1, dim2, lr, a1, a2, m1, f
 
 # parameter parsing
 parser = argparse.ArgumentParser(description='JOIE Training')
+
 # required parameters
 parser.add_argument('--method', type=str, help='embedding method')
 parser.add_argument('--bridge', type=str, help='entity-conept link method')
@@ -38,6 +40,9 @@ parser.add_argument('--eval_file', type=str,help='test data file path')
 parser.add_argument('--eval_freq', type=int, help='eval frequency')
 parser.add_argument('--modelname', type=str,help='model name and data path')
 parser.add_argument('--GPU', type=str, default='0', help='GPU Usage')
+parser.add_argument('--debug', type=bool, default=False, help='debug mode')
+parser.add_argument('--seed', type=int, default=None, help='random seed')
+
 # hyper-parameters
 parser.add_argument('--dim1', type=int, default=300,help='Entity dimension') #update dim
 parser.add_argument('--dim2', type=int, default=100,help='Concept dimension') #update dim
@@ -49,7 +54,6 @@ parser.add_argument('--lr', type=float, default= 0.0005, help ='learning rate')
 parser.add_argument('--transformation', type=str, default='relation-specific', help='transformation of the enitites')
 parser.add_argument('--sampling_type', type=str, default='frequency', choices=['frequency', 'uniform'],
 	                help='Negative sampling choices')
-
 parser.add_argument('--a1', type=float, default=2.5, metavar='A',help='ins learning ratio')
 parser.add_argument('--a2', type=float, default=1.0, metavar='a',help='onto learning ratio')
 parser.add_argument('--m1', type=float, default=0.5, help='learning rate')
@@ -64,8 +68,10 @@ parser.add_argument('--L1', type=bool, default=False, help='learning rate')
 parser.add_argument('--fold', type=int, default=3, metavar='E',help='number of epochs')
 args = parser.parse_args()
 
-wandb.init(project="box-joie",  reinit=True)
-wandb.config.update(args)
+if args.seed is None:
+	args.seed = random.randint(0, 2 ** 32)
+random.seed(args.seed)
+tf.set_random_seed(args.seed)
 
 if args.bridge == 'box':
 	args.dim2 = args.dim1
@@ -73,6 +79,12 @@ if args.bridge == 'box':
 if args.bridge == "CG" and args.dim1 != args.dim2:
 	print("Warning! CG does not allow ")
 print(args)
+
+
+wandb.init(project="box-joie",  reinit=True)
+wandb.config.update(args)
+
+
 
 os.environ['CUDA_VISIBLE_DEVICES'] = args.GPU
 
@@ -141,7 +153,7 @@ m_train.build(this_data, method=args.method, bridge=args.bridge, dim1=args.dim1,
 	batch_sizeK1=args.batch_K1, batch_sizeK2=args.batch_K2, batch_sizeA=args.batch_A, sampling_type=args.sampling_type, 
 	a1=args.a1, a2=args.a2, m1=args.m1, vol_temp=args.vol_temp , int_temp=args.int_temp, int_method=args.int_method,
 	box_method=args.box_method, transformation=args.transformation, save_path = model_path, multiG_save_path = data_path,
-	log_save_path = tf_log_path, L1=False, eval_file=args.eval_file, eval_freq=args.eval_freq)
+	log_save_path = tf_log_path, L1=False, eval_file=args.eval_file, eval_freq=args.eval_freq, debug=args.debug)
 
 
 m_train.train(epochs=200, save_every_epoch=1, lr=args.lr, a1=args.a1, a2=args.a2, m1=args.m1, AM_fold=args.fold)

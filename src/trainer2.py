@@ -15,11 +15,11 @@ import box_model as model
 
 class Trainer(object):
     def __init__(self):
-        self.batch_sizeK1=512
-        self.batch_sizeK2=128
-        self.batch_sizeA=32
-        self.dim1=300
-        self.dim2=50
+        self.batch_sizeK1 = 512
+        self.batch_sizeK2 = 128
+        self.batch_sizeA = 32
+        self.dim1 = 300
+        self.dim2 = 50
         self._m1 = 0.5
         self._a1 = 5.
         self._a2 = 0.5
@@ -55,6 +55,7 @@ class Trainer(object):
                                  num_ents1=self.multiG.KG1.num_ents(),
                                  num_rels2=self.multiG.KG2.num_rels(),
                                  num_ents2=self.multiG.KG2.num_ents(),
+                                 isa_index=self.multiG.KG2.index_rels['isa'],
                                  method=self.method,
                                  bridge=self.bridge,
                                  dim1=dim1,

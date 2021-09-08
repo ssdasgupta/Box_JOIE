@@ -49,7 +49,7 @@ class TFParts(object):
     '''
 
     def __init__(self, num_rels1,
-                 num_ents1, num_rels2, num_ents2, 
+                 num_ents1, num_rels2, num_ents2, isa_index,
                  method='distmult', bridge='CG', 
                  dim1=300, dim2=100,
                  batch_sizeK1=512, batch_sizeK2=512, batch_sizeA=256, 
@@ -59,8 +59,9 @@ class TFParts(object):
         self._num_entsA = num_ents1
         self._num_relsB = num_rels2
         self._num_entsB = num_ents2
-        self.method=method
-        self.bridge=bridge
+        self.isa_index = isa_index
+        self.method = method
+        self.bridge = bridge
         self._dim1 = dim1
         self._dim2 = dim2
         if bridge =='box':
@@ -99,7 +100,7 @@ class TFParts(object):
             # Variables (matrix of embeddings/transformations)
             
 
-            #----- KG1 --- What is KG1? Is this ontology or instances?
+            #----- KG1 --- What is 01? Is this ontology or instances?
 
             ### ------------ These variables must be replaced with box embeddings ------ ### 
             self._ht1 = ht1 = tf.get_variable(
@@ -134,7 +135,7 @@ class TFParts(object):
             # Dimension is doubled because one for min and one for delta
             # Also the transformation is different for head and tail.
 
-            # Here, 
+            # Here,
 
             self._r2_head = r2_head = tf.get_variable(
                 name='r2_head',
@@ -145,6 +146,7 @@ class TFParts(object):
                 name='r2_tail',
                 shape=[self._num_relsB, self._dim2 * 2],
                 dtype=tf.float32)
+
 
             self._ht1_norm = tf.nn.l2_normalize(ht1, 1)
             # self._ht2_norm = tf.nn.l2_normalize(ht2, 1) ## --- maybe not require for this one, if we are considering boxes.
@@ -297,16 +299,27 @@ class TFParts(object):
                 shape=[self._batch_sizeA],
                 name='AM_nindex2')
 
+            # Query the vectors
             AM_ent1_batch = tf.nn.embedding_lookup(ht1, AM_index1)
             AM_ent1_nbatch = tf.nn.embedding_lookup(ht1, AM_nindex1)
-            #self.instance_delta = tf.Variable(tf.ones_like(AM_ent1_batch), trainable = False) * 10**(-7)
+
+            # Should we transform the vectors? 
+            # Maybe IS-A transform.
+            # Maybe Any learnt transform.
+
+            # self.instance_delta = tf.Variable(tf.ones_like(AM_ent1_batch), trainable = False) * 10**(-7)
             # relation_vector =  tf.zeros(dtype=tf.float32, shape=[self._batch_sizeA, self._dim1 * 2])
+            type_rel_batch_head = tf.nn.embedding_lookup(r2_head, self.isa_index)
+            type_rel_batch_tail = tf.nn.embedding_lookup(r2_tail, self.isa_index)
 
-            AM_ent1_min = AM_ent1_max = AM_ent1_batch
-            AM_nent1_min = AM_nent1_max = AM_ent1_nbatch 
+            AM_ent1_min = AM_ent1_max = AM_ent1_batch + tf.split(
+                    type_rel_batch_head, 2, axis=-1, name='split')[0]
+            AM_nent1_min = AM_nent1_max = AM_ent1_nbatch + tf.split(
+                type_rel_batch_head, 2, axis=-1, name='split')[0]
 
-            AM_ent2_min, AM_ent2_max = self._ht2.get_embedding(AM_index2)
-            AM_nent2_min, AM_nent2_max = self._ht2.get_embedding(AM_nindex2)
+
+            AM_ent2_min, AM_ent2_max = self._ht2.get_transformed_embedding(AM_index2, type_rel_batch_tail)
+            AM_nent2_min, AM_nent2_max = self._ht2.get_transformed_embedding(AM_nindex2, type_rel_batch_tail)
 
             self.vol_temp = vol_temp = self._ht2.get_vol_temperature(AM_index2)
             vol_temp_n = self._ht2.get_vol_temperature(AM_nindex2)
